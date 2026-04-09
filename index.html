@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PairUp ✦</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg:         #0c0e14;
+      --surface:    #14161f;
+      --surface2:   #1c1f2e;
+      --surface3:   #242840;
+      --border:     #2a2e45;
+      --accent:     #e05c5c;
+      --accent2:    #5cc8e0;
+      --accent3:    #e0a85c;
+      --text:       #dde1f0;
+      --text-muted: #6b718f;
+      --success:    #5cdea8;
+      --radius:     14px;
+      --font-disp:  'Cormorant Garamond', serif;
+      --font-body:  'Noto Sans KR', sans-serif;
+      --transition: 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; gap: 4px;
+      padding: 0 20px; height: 58px;
+      background: rgba(12,14,20,0.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand { font-family: var(--font-disp); font-size: 22px; color: var(--accent); margin-right: auto; letter-spacing: 1px; }
+    .nav-btn {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-family: var(--font-body);
+      font-size: 13px; padding: 6px 12px; border-radius: 8px;
+      transition: var(--transition); white-space: nowrap;
+    }
+    .nav-btn:hover { background: var(--surface2); color: var(--text); }
+    .nav-btn.active { background: var(--surface3); color: var(--accent2); }
+
+    /* ── Nav language pill ── */
+    .ui-lang-toggle {
+      display: flex; align-items: center;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 3px; gap: 2px; margin-left: 8px;
+    }
+    .ui-lang-opt {
+      padding: 4px 11px; border-radius: 16px; border: none;
+      background: none; color: var(--text-muted);
+      font-family: var(--font-body); font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: var(--transition); letter-spacing: 0.4px;
+    }
+    .ui-lang-opt.active { background: var(--accent2); color: #0c0e14; box-shadow: 0 1px 6px rgba(92,200,224,0.35); }
+    .ui-lang-opt:not(.active):hover { color: var(--text); }
+
+    /* ── Home language banner ── */
+    .lang-banner {
+      background: linear-gradient(135deg, rgba(92,200,224,0.07), rgba(224,92,92,0.04));
+      border: 1px solid rgba(92,200,224,0.2); border-radius: var(--radius);
+      padding: 16px 20px; display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      margin-bottom: 28px;
+    }
+    .lang-banner-left { display: flex; align-items: center; gap: 12px; }
+    .lang-banner-icon { font-size: 26px; }
+    .lang-banner-text h3 { font-size: 14px; font-weight: 600; }
+    .lang-banner-text p  { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .lang-banner-btns { display: flex; gap: 8px; }
+    .lang-banner-btn {
+      padding: 8px 22px; border-radius: 20px; border: 2px solid var(--border);
+      background: var(--surface2); color: var(--text-muted);
+      font-family: var(--font-body); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: var(--transition);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .lang-banner-btn:hover { border-color: var(--accent2); color: var(--text); }
+    .lang-banner-btn.active {
+      border-color: var(--accent2); color: var(--accent2);
+      background: rgba(92,200,224,0.1); box-shadow: 0 0 14px rgba(92,200,224,0.2);
+    }
+    .lang-check { opacity: 0; font-size: 10px; transition: opacity 0.15s; }
+    .lang-banner-btn.active .lang-check { opacity: 1; }
+
+    /* ── Layout ── */
+    .container { max-width: 860px; margin: 0 auto; padding: 32px 20px; }
+    .view { display: none; }
+    .view.active { display: block; animation: fadeIn 0.28s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(7px) } to { opacity:1; transform:none } }
+    .section-title {
+      font-family: var(--font-disp); font-size: 28px; font-weight: 700; margin-bottom: 6px;
+      background: linear-gradient(135deg, var(--text) 40%, var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .section-sub { color: var(--text-muted); font-size: 13px; margin-bottom: 28px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; transition: var(--transition); }
+    .card:hover { border-color: var(--surface3); }
+
+    /* ── Buttons ── */
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 20px; border-radius: 10px; border: none; font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--transition); }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover  { background: #c94f4f; transform: translateY(-1px); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--surface3); }
+    .btn-outline { background: transparent; color: var(--accent2); border: 1px solid var(--accent2); }
+    .btn-outline:hover { background: rgba(92,200,224,0.1); }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+    /* ── Form ── */
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .form-label .required { color: var(--accent); margin-left: 3px; }
+    .form-input { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: var(--font-body); font-size: 14px; transition: var(--transition); outline: none; }
+    .form-input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(92,200,224,0.12); }
+    .form-input::placeholder { color: var(--text-muted); }
+    select.form-input option { background: var(--surface2); }
+    textarea.form-input { resize: vertical; min-height: 80px; }
+
+    /* ── Profile lang buttons (register form) ── */
+    .profile-lang-btns { display: flex; gap: 10px; }
+    .profile-lang-btn { padding: 10px 24px; border-radius: 10px; border: 2px solid var(--border); background: var(--surface2); color: var(--text-muted); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; transition: var(--transition); }
+    .profile-lang-btn.selected { border-color: var(--accent2); color: var(--accent2); background: rgba(92,200,224,0.1); box-shadow: 0 0 12px rgba(92,200,224,0.18); }
+    .profile-lang-btn.selected::after { content: ' ✓'; font-size: 11px; }
+    .lang-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+    /* ── Tags ── */
+    .tag-input-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; min-height: 44px; align-items: center; transition: var(--transition); cursor: text; }
+    .tag-input-wrap:focus-within { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(92,200,224,0.12); }
+    .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; background: var(--surface3); border: 1px solid var(--border); color: var(--text); font-size: 12px; }
+    .tag-remove { cursor: pointer; color: var(--text-muted); font-size: 14px; line-height: 1; transition: color 0.15s; }
+    .tag-remove:hover { color: var(--accent); }
+    .tag-text-input { border: none; outline: none; background: none; color: var(--text); font-family: var(--font-body); font-size: 13px; min-width: 80px; flex: 1; }
+    .tag-hint { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+
+    /* ── Stats ── */
+    .stats-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 28px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; text-align: center; }
+    .stat-value { font-family: var(--font-disp); font-size: 32px; font-weight: 700; color: var(--accent2); line-height: 1; }
+    .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.5px; }
+
+    /* ── Profile grid ── */
+    .profile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 14px; }
+    .profile-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; cursor: pointer; transition: var(--transition); position: relative; }
+    .profile-card:hover { border-color: var(--accent2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .profile-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 10px; background: var(--surface3); border: 2px solid var(--border); }
+    .profile-name { font-weight: 700; font-size: 15px; margin-bottom: 3px; }
+    .profile-meta { font-size: 12px; color: var(--text-muted); }
+    .profile-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+    .chip { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--surface3); color: var(--text-muted); }
+    .chip.lang { border: 1px solid var(--accent3); color: var(--accent3); background: rgba(224,168,92,0.08); }
+    .match-count-badge { position: absolute; top: 12px; right: 12px; font-size: 10px; padding: 2px 7px; border-radius: 20px; background: var(--surface3); color: var(--text-muted); }
+
+    /* ── Match arena ── */
+    .match-arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 24px 0; }
+    .match-card { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; padding: 28px 22px; text-align: center; transition: var(--transition); position: relative; overflow: hidden; }
+    .match-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 60%, rgba(92,200,224,0.05)); opacity: 0; transition: var(--transition); }
+    .match-card:hover { border-color: var(--accent2); transform: scale(1.02); box-shadow: 0 12px 40px rgba(0,0,0,0.4); }
+    .match-card:hover::before { opacity: 1; }
+    .match-avatar { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 14px; background: var(--surface2); border: 3px solid var(--border); }
+    .match-name { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .match-mbti { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--surface3); color: var(--accent3); margin-bottom: 10px; }
+    .match-detail { font-size: 12px; color: var(--text-muted); line-height: 1.8; }
+    .vs-badge { font-family: var(--font-disp); font-size: 36px; font-weight: 700; color: var(--accent); text-align: center; padding: 8px; text-shadow: 0 0 20px rgba(224,92,92,0.4); }
+    .match-selector { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 20px; }
+    .match-selector label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+
+    /* ── Toast ── */
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; font-size: 13px; max-width: 320px; transform: translateY(80px); opacity: 0; transition: var(--transition); pointer-events: none; }
+    #toast.show { transform: none; opacity: 1; }
+    #toast.success { border-color: var(--success); color: var(--success); }
+    #toast.error   { border-color: var(--accent);  color: var(--accent); }
+    #toast.info    { border-color: var(--accent2); color: var(--accent2); }
+
+    /* ── Match history ── */
+    .match-list { display: flex; flex-direction: column; gap: 10px; }
+    .match-item { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; display: flex; align-items: center; gap: 12px; font-size: 13px; }
+    .match-item .pair-names { flex: 1; font-weight: 500; }
+    .match-item .pair-date  { font-size: 11px; color: var(--text-muted); }
+    .badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+    .badge-auto   { background: rgba(92,200,224,0.15); color: var(--accent2); }
+    .badge-manual { background: rgba(224,168,92,0.15); color: var(--accent3); }
+
+    /* ── Admin ── */
+    .admin-select-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .admin-pick-list { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; max-height: 260px; overflow-y: auto; }
+    .admin-pick-item { padding: 10px 14px; cursor: pointer; transition: background 0.15s; font-size: 13px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+    .admin-pick-item:last-child { border-bottom: none; }
+    .admin-pick-item:hover { background: var(--surface3); }
+    .admin-pick-item.selected { background: rgba(92,200,224,0.1); color: var(--accent2); }
+
+    /* ── Misc ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+    .empty-state { text-align: center; padding: 48px 0; color: var(--text-muted); }
+    .empty-state .emoji { font-size: 40px; margin-bottom: 12px; }
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--accent2); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .flex { display: flex; } .gap-2 { gap: 8px; }
+    .mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mb-3 { margin-bottom: 12px; }
+    .text-muted { color: var(--text-muted); } .text-sm { font-size: 12px; } .fw-600 { font-weight: 600; }
+    .text-accent { color: var(--accent); } .text-success { color: var(--success); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    @media (max-width: 600px) {
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .match-arena { grid-template-columns: 1fr; }
+      .vs-badge { display: none; }
+      .admin-select-grid { grid-template-columns: 1fr; }
+      .nav-btn .nav-label { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ── -->
+<nav>
+  <span class="nav-brand">PairUp ✦</span>
+  <button class="nav-btn active" onclick="showView('home')">
+    🏠 <span class="nav-label" data-i18n="nav_home">홈</span>
+  </button>
+  <button class="nav-btn" onclick="showView('register')">
+    ✏️ <span class="nav-label" data-i18n="nav_register">등록</span>
+  </button>
+  <button class="nav-btn" onclick="showView('match')">
+    🎯 <span class="nav-label" data-i18n="nav_match">매칭</span>
+  </button>
+  <button class="nav-btn" onclick="showView('admin')">
+    ⚙️ <span class="nav-label" data-i18n="nav_admin">관리</span>
+  </button>
+  <!-- ★ UI Language pill — always in nav -->
+  <div class="ui-lang-toggle">
+    <button class="ui-lang-opt active" id="nav-lang-ko" onclick="setUILang('ko')">KO</button>
+    <button class="ui-lang-opt"        id="nav-lang-en" onclick="setUILang('en')">EN</button>
+  </div>
+</nav>
+
+<div id="toast"></div>
+
+<!-- =====================================================  VIEW 1: HOME  -->
+<div id="view-home" class="view active">
+  <div class="container">
+
+    <!-- ★ Language banner — prominent on Home screen -->
+    <div class="lang-banner">
+      <div class="lang-banner-left">
+        <div class="lang-banner-icon">🌐</div>
+        <div class="lang-banner-text">
+          <h3 data-i18n="banner_title">앱 언어 선택</h3>
+          <p data-i18n="banner_sub">모든 화면의 언어가 변경됩니다</p>
+        </div>
+      </div>
+      <div class="lang-banner-btns">
+        <button class="lang-banner-btn active" id="banner-ko" onclick="setUILang('ko')">
+          🇰🇷 한국어 <span class="lang-check">✓</span>
+        </button>
+        <button class="lang-banner-btn" id="banner-en" onclick="setUILang('en')">
+          🇺🇸 English <span class="lang-check">✓</span>
+        </button>
+      </div>
+    </div>
+
+    <h1 class="section-title" data-i18n="home_title">참가자 목록</h1>
+    <p class="section-sub" data-i18n="home_sub">등록된 참가자들과 전체 매칭 현황을 확인하세요.</p>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-value" id="stat-participants">—</div>
+        <div class="stat-label" data-i18n="stat_participants">총 참가자</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-matches">—</div>
+        <div class="stat-label" data-i18n="stat_matches">완료된 매칭</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-remaining">—</div>
+        <div class="stat-label" data-i18n="stat_remaining">가능한 조합 수</div>
+      </div>
+    </div>
+
+    <div id="profile-grid" class="profile-grid">
+      <div class="empty-state">
+        <div class="spinner"></div>
+        <p style="margin-top:12px" data-i18n="loading">불러오는 중...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================  VIEW 2: REGISTER  -->
+<div id="view-register" class="view">
+  <div class="container" style="max-width:580px">
+    <h1 class="section-title" data-i18n="reg_title">참가자 등록</h1>
+    <p class="section-sub" data-i18n="reg_sub">프로필 정보를 입력하면 매칭 추천에 포함됩니다.</p>
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label"><span data-i18n="reg_name">이름</span> <span class="required">*</span></label>
+        <input id="f-name" class="form-input" data-i18n-ph="reg_name_ph" placeholder="예: 김민준" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="reg_gender">성별 (선택)</label>
+        <select id="f-gender" class="form-input">
+          <option value=""      data-i18n="reg_gender_none">선택 안 함</option>
+          <option value="male"  data-i18n="reg_gender_m">남성</option>
+          <option value="female"data-i18n="reg_gender_f">여성</option>
+          <option value="other" data-i18n="reg_gender_o">기타</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="reg_country">출신 국가</label>
+        <input id="f-country" class="form-input" data-i18n-ph="reg_country_ph" placeholder="예: 한국, Korea..." />
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="reg_mbti">MBTI (선택)</label>
+        <select id="f-mbti" class="form-input">
+          <option value="" data-i18n="reg_mbti_none">선택 안 함</option>
+          <option>INTJ</option><option>INTP</option><option>ENTJ</option><option>ENTP</option>
+          <option>INFJ</option><option>INFP</option><option>ENFJ</option><option>ENFP</option>
+          <option>ISTJ</option><option>ISFJ</option><option>ESTJ</option><option>ESFJ</option>
+          <option>ISTP</option><option>ISFP</option><option>ESTP</option><option>ESFP</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <span data-i18n="reg_foods">좋아하는 음식</span>
+          <span class="text-sm text-muted" data-i18n="reg_tag_hint"> (태그형)</span>
+        </label>
+        <div class="tag-input-wrap" id="food-wrap" onclick="document.getElementById('food-input').focus()">
+          <input id="food-input" class="tag-text-input" data-i18n-ph="reg_tag_ph" placeholder="입력 후 Enter 또는 쉼표" />
+        </div>
+        <p class="tag-hint" data-i18n="reg_foods_hint">예: 김치찌개, 스시, pizza → Enter로 추가</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <span data-i18n="reg_hobbies">취미</span>
+          <span class="text-sm text-muted" data-i18n="reg_tag_hint"> (태그형)</span>
+        </label>
+        <div class="tag-input-wrap" id="hobby-wrap" onclick="document.getElementById('hobby-input').focus()">
+          <input id="hobby-input" class="tag-text-input" data-i18n-ph="reg_tag_ph" placeholder="입력 후 Enter 또는 쉼표" />
+        </div>
+        <p class="tag-hint" data-i18n="reg_hobbies_hint">예: 등산, 독서, gaming → Enter로 추가</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <span data-i18n="reg_lang_label">사용 언어</span>
+          <span class="required">*</span>
+        </label>
+        <div class="profile-lang-btns">
+          <button class="profile-lang-btn" id="plang-ko" onclick="toggleProfileLang('ko')">🇰🇷 한국어</button>
+          <button class="profile-lang-btn" id="plang-en" onclick="toggleProfileLang('en')">🇺🇸 English</button>
+        </div>
+        <p class="lang-hint" data-i18n="reg_lang_hint">복수 선택 가능 (한 개 이상 필수)</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" data-i18n="reg_bio">자기소개 (선택)</label>
+        <textarea id="f-bio" class="form-input" rows="3" data-i18n-ph="reg_bio_ph" placeholder="간단한 자기소개를 써주세요..."></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="submitProfile()">
+        <span data-i18n="reg_submit">✦ 등록하기</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================  VIEW 3: MATCH  -->
+<div id="view-match" class="view">
+  <div class="container">
+    <h1 class="section-title" data-i18n="match_title">매칭 추천</h1>
+    <p class="section-sub" data-i18n="match_sub">아직 만나지 않은 두 사람을 추천합니다. 확인하면 매칭으로 저장됩니다.</p>
+    <div class="match-selector">
+      <label data-i18n="match_select_label">매칭 추천받을 참가자 선택</label>
+      <div class="flex gap-2" style="align-items:center">
+        <select id="match-target" class="form-input" style="flex:1" onchange="loadMatchCandidate()">
+          <option value="" data-i18n="match_select_ph">— 참가자 선택 —</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadMatchCandidate()">
+          🔄 <span data-i18n="match_retry">재추천</span>
+        </button>
+      </div>
+    </div>
+    <div id="match-arena-wrap">
+      <div class="empty-state">
+        <div class="emoji">🎯</div>
+        <p data-i18n="match_empty">위에서 참가자를 선택하면 매칭 후보가 나타납니다.</p>
+      </div>
+    </div>
+    <div id="match-confirm-area" style="display:none; margin-top:16px; text-align:center">
+      <button class="btn btn-primary" onclick="confirmMatch()" id="confirm-btn">
+        <span data-i18n="match_confirm">✓ 이 매칭 확정하기</span>
+      </button>
+      <p class="text-sm text-muted mt-2" data-i18n="match_confirm_hint">확정하면 Firebase에 저장되며 이후 추천에서 제외됩니다.</p>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================  VIEW 4: ADMIN  -->
+<div id="view-admin" class="view">
+  <div class="container">
+    <h1 class="section-title" data-i18n="admin_title">관리자 패널</h1>
+    <p class="section-sub" data-i18n="admin_sub">과거 매칭 수동 등록, 전체 매칭 기록 조회</p>
+    <div class="card mb-3">
+      <h3 class="fw-600 mb-3" data-i18n="admin_manual_title">📌 과거 매칭 수동 등록</h3>
+      <p class="text-sm text-muted mb-3" data-i18n="admin_manual_desc">오프라인이나 과거에 이미 만난 두 사람을 "기존 매칭됨"으로 등록하면 이후 자동 추천에서 완전히 제외됩니다.</p>
+      <div class="admin-select-grid">
+        <div>
+          <div class="form-label" data-i18n="admin_person_a">참가자 A</div>
+          <div class="admin-pick-list" id="admin-list-a"></div>
+        </div>
+        <div>
+          <div class="form-label" data-i18n="admin_person_b">참가자 B</div>
+          <div class="admin-pick-list" id="admin-list-b"></div>
+        </div>
+      </div>
+      <div id="admin-selected-preview" class="mt-3 text-sm" style="display:none">
+        <span data-i18n="admin_selected">선택됨:</span> <strong id="admin-preview-text"></strong>
+      </div>
+      <button class="btn btn-outline mt-3" onclick="submitManualMatch()">
+        <span data-i18n="admin_save_manual">📌 기존 매칭됨으로 저장</span>
+      </button>
+    </div>
+    <hr class="divider" />
+    <h3 class="fw-600 mb-3" data-i18n="admin_history_title">📋 전체 매칭 기록</h3>
+    <div id="match-history-list">
+      <div class="empty-state"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================  JS  -->
+<script>
+// ============================================================
+// [0] Firebase 초기화  ⚠️ firebaseConfig를 본인 설정으로 교체하세요
+// ============================================================
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const COL_PROFILES = 'profiles';
+const COL_MATCHES  = 'matches';
+
+// ============================================================
+// [1] 전역 상태
+// ============================================================
+let allProfiles = [], allMatches = [];
+let selectedProfileLangs = [], foodTags = [], hobbyTags = [];
+let currentTargetUid = null, currentCandidateUid = null;
+let adminPickA = null, adminPickB = null;
+
+// ============================================================
+// [2] 번역 테이블 (TRANSLATIONS)
+// 새 문자열 추가 시 ko/en 두 곳에 모두 추가하세요.
+// ============================================================
+const TRANSLATIONS = {
+  ko: {
+    nav_home:'홈', nav_register:'등록', nav_match:'매칭', nav_admin:'관리',
+    banner_title:'앱 언어 선택', banner_sub:'모든 화면의 언어가 변경됩니다',
+    home_title:'참가자 목록', home_sub:'등록된 참가자들과 전체 매칭 현황을 확인하세요.',
+    stat_participants:'총 참가자', stat_matches:'완료된 매칭', stat_remaining:'가능한 조합 수',
+    loading:'불러오는 중...', home_empty:'아직 등록된 참가자가 없습니다.', home_empty_link:'등록하기 →',
+    match_count:'{n}회 매칭',
+    reg_title:'참가자 등록', reg_sub:'프로필 정보를 입력하면 매칭 추천에 포함됩니다.',
+    reg_name:'이름', reg_name_ph:'예: 김민준',
+    reg_gender:'성별 (선택)', reg_gender_none:'선택 안 함', reg_gender_m:'남성', reg_gender_f:'여성', reg_gender_o:'기타',
+    reg_country:'출신 국가', reg_country_ph:'예: 한국, Korea, Japan...',
+    reg_mbti:'MBTI (선택)', reg_mbti_none:'선택 안 함',
+    reg_foods:'좋아하는 음식', reg_tag_hint:' (태그형)', reg_tag_ph:'입력 후 Enter 또는 쉼표',
+    reg_foods_hint:'예: 김치찌개, 스시, pizza → Enter로 추가',
+    reg_hobbies:'취미', reg_hobbies_hint:'예: 등산, 독서, gaming → Enter로 추가',
+    reg_lang_label:'사용 언어', reg_lang_hint:'복수 선택 가능 (한 개 이상 필수)',
+    reg_bio:'자기소개 (선택)', reg_bio_ph:'간단한 자기소개를 써주세요...', reg_submit:'✦ 등록하기',
+    match_title:'매칭 추천', match_sub:'아직 만나지 않은 두 사람을 추천합니다. 확인하면 매칭으로 저장됩니다.',
+    match_select_label:'매칭 추천받을 참가자 선택', match_select_ph:'— 참가자 선택 —',
+    match_retry:'재추천', match_empty:'위에서 참가자를 선택하면 매칭 후보가 나타납니다.',
+    match_confirm:'✓ 이 매칭 확정하기', match_confirm_hint:'확정하면 Firebase에 저장되며 이후 추천에서 제외됩니다.',
+    match_info:'{name}의 기존 매칭 {count}건 제외 | 남은 후보 {remain}명 중 1명 추천',
+    match_done:'{name}님은 현재 등록된 모든 참가자와 매칭을 완료했습니다!',
+    match_done_hint:'새 참가자가 등록되면 추천이 다시 가능합니다.',
+    match_loading:'후보 탐색 중...', match_saving:'저장 중...',
+    match_saved:'✦ {a} ↔ {b} 매칭 완료!', match_already:'⚠️ 이미 매칭된 조합입니다. 다른 후보를 추천합니다.',
+    match_fail:'저장 실패: ', match_load_fail:'추천 로딩 실패: ', match_no_target:'매칭 대상이 선택되지 않았습니다.',
+    admin_title:'관리자 패널', admin_sub:'과거 매칭 수동 등록, 전체 매칭 기록 조회',
+    admin_manual_title:'📌 과거 매칭 수동 등록',
+    admin_manual_desc:'오프라인이나 과거에 이미 만난 두 사람을 "기존 매칭됨"으로 등록하면 이후 자동 추천에서 완전히 제외됩니다.',
+    admin_person_a:'참가자 A', admin_person_b:'참가자 B', admin_selected:'선택됨:',
+    admin_same_person:'(같은 사람 선택됨!)', admin_save_manual:'📌 기존 매칭됨으로 저장',
+    admin_history_title:'📋 전체 매칭 기록', admin_history_empty:'아직 매칭 기록이 없습니다.',
+    admin_err_select:'두 참가자를 모두 선택해주세요.', admin_err_same:'서로 다른 사람을 선택해주세요.',
+    admin_saved:'📌 수동 매칭 등록 완료: {a} ↔ {b}', admin_already:'⚠️ 이미 매칭된 조합입니다.',
+    admin_fail:'저장 실패: ', badge_auto:'자동', badge_manual:'수동',
+    err_name:'이름을 입력해주세요.', err_lang:'언어를 최소 1개 선택해주세요.',
+    reg_ok:'✦ {name}님 등록 완료!', reg_fail:'저장 실패: ', load_fail:'데이터 로드 실패: ',
+  },
+  en: {
+    nav_home:'Home', nav_register:'Register', nav_match:'Match', nav_admin:'Admin',
+    banner_title:'App Language', banner_sub:'Changes all screens instantly',
+    home_title:'Participants', home_sub:'Browse registered participants and overall matching status.',
+    stat_participants:'Total Participants', stat_matches:'Completed Matches', stat_remaining:'Possible Pairs Left',
+    loading:'Loading...', home_empty:'No participants registered yet.', home_empty_link:'Register now →',
+    match_count:'{n} matches',
+    reg_title:'Register Participant', reg_sub:'Fill in your profile to be included in match recommendations.',
+    reg_name:'Name', reg_name_ph:'e.g. Alex Kim',
+    reg_gender:'Gender (optional)', reg_gender_none:'Not specified', reg_gender_m:'Male', reg_gender_f:'Female', reg_gender_o:'Other',
+    reg_country:'Country of Origin', reg_country_ph:'e.g. Korea, Japan, USA...',
+    reg_mbti:'MBTI (optional)', reg_mbti_none:'Not specified',
+    reg_foods:'Favorite Foods', reg_tag_hint:' (tags)', reg_tag_ph:'Type then Enter or comma',
+    reg_foods_hint:'e.g. kimchi, sushi, pizza → press Enter',
+    reg_hobbies:'Hobbies', reg_hobbies_hint:'e.g. hiking, reading, gaming → press Enter',
+    reg_lang_label:'Languages Spoken', reg_lang_hint:'Multiple selections allowed (at least one required)',
+    reg_bio:'Bio (optional)', reg_bio_ph:'Write a short introduction...', reg_submit:'✦ Register',
+    match_title:'Match Recommendation', match_sub:"Two people who haven't met yet. Confirm to save the match.",
+    match_select_label:'Select a participant to match', match_select_ph:'— Select participant —',
+    match_retry:'Retry', match_empty:'Select a participant above to see match candidates.',
+    match_confirm:'✓ Confirm This Match', match_confirm_hint:'Saved to Firebase and excluded from future recommendations.',
+    match_info:'Excluding {count} existing matches for {name} | Recommending 1 of {remain} candidates',
+    match_done:'{name} has been matched with all current participants!',
+    match_done_hint:'New matches will be possible when new participants join.',
+    match_loading:'Finding candidates...', match_saving:'Saving...',
+    match_saved:'✦ {a} ↔ {b} matched!', match_already:'⚠️ Already matched. Recommending another.',
+    match_fail:'Save failed: ', match_load_fail:'Load failed: ', match_no_target:'No participant selected.',
+    admin_title:'Admin Panel', admin_sub:'Register past matches manually, view full match history.',
+    admin_manual_title:'📌 Register Past Match',
+    admin_manual_desc:'Mark two people as "already matched" (e.g. offline) so they are excluded from future auto-recommendations.',
+    admin_person_a:'Person A', admin_person_b:'Person B', admin_selected:'Selected:',
+    admin_same_person:'(Same person selected!)', admin_save_manual:'📌 Save as Already Matched',
+    admin_history_title:'📋 Full Match History', admin_history_empty:'No match records yet.',
+    admin_err_select:'Please select both participants.', admin_err_same:'Please select two different people.',
+    admin_saved:'📌 Manual match saved: {a} ↔ {b}', admin_already:'⚠️ This pair is already matched.',
+    admin_fail:'Save failed: ', badge_auto:'Auto', badge_manual:'Manual',
+    err_name:'Please enter a name.', err_lang:'Please select at least one language.',
+    reg_ok:'✦ {name} registered!', reg_fail:'Save failed: ', load_fail:'Load failed: ',
+  }
+};
+
+// ============================================================
+// [3] i18n 엔진
+// ============================================================
+// 현재 UI 언어 — localStorage에 영속 저장
+let uiLang = localStorage.getItem('pairup_ui_lang') || 'ko';
+
+/** t(key, vars) : 현재 언어의 번역 문자열 반환, {placeholder} 치환 지원 */
+function t(key, vars = {}) {
+  let str = (TRANSLATIONS[uiLang] || TRANSLATIONS.ko)[key] || key;
+  Object.entries(vars).forEach(([k, v]) => {
+    str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+  });
+  return str;
+}
+
+/** applyI18n() : data-i18n 속성 DOM 요소에 번역 텍스트 적용 */
+function applyI18n() {
+  // 일반 텍스트 노드
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  // input/textarea placeholder
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  // select option
+  document.querySelectorAll('option[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.documentElement.lang = uiLang === 'ko' ? 'ko' : 'en';
+}
+
+/** setUILang(lang) : UI 언어 전환 → 정적 텍스트 재렌더 → 현재 뷰 동적 콘텐츠 재렌더 */
+function setUILang(lang) {
+  if (uiLang === lang) return;
+  uiLang = lang;
+  localStorage.setItem('pairup_ui_lang', lang);
+  applyI18n();
+  syncLangToggleUI();
+  // 동적으로 렌더된 콘텐츠 재렌더
+  const activeView = document.querySelector('.view.active');
+  if (activeView) {
+    const name = activeView.id.replace('view-', '');
+    if (name === 'home')  loadHome();
+    if (name === 'match') loadMatchView();
+    if (name === 'admin') loadAdminView();
+  }
+}
+
+/** syncLangToggleUI() : nav pill + home banner 버튼 활성 상태 동기화 */
+function syncLangToggleUI() {
+  document.getElementById('nav-lang-ko').classList.toggle('active', uiLang === 'ko');
+  document.getElementById('nav-lang-en').classList.toggle('active', uiLang === 'en');
+  document.getElementById('banner-ko').classList.toggle('active', uiLang === 'ko');
+  document.getElementById('banner-en').classList.toggle('active', uiLang === 'en');
+}
+
+// ============================================================
+// [4] 뷰 라우팅
+// ============================================================
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`view-${name}`).classList.add('active');
+  document.querySelectorAll('.nav-btn')[['home','register','match','admin'].indexOf(name)].classList.add('active');
+  if (name === 'home')  loadHome();
+  if (name === 'match') loadMatchView();
+  if (name === 'admin') loadAdminView();
+}
+
+// ============================================================
+// [5] 홈 뷰
+// ============================================================
+async function loadHome() {
+  try {
+    const [pSnap, mSnap] = await Promise.all([
+      db.collection(COL_PROFILES).orderBy('createdAt','desc').get(),
+      db.collection(COL_MATCHES).get()
+    ]);
+    allProfiles = pSnap.docs.map(d => ({ uid: d.id, ...d.data() }));
+    allMatches  = mSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const n = allProfiles.length, m = allMatches.length;
+    document.getElementById('stat-participants').textContent = n;
+    document.getElementById('stat-matches').textContent      = m;
+    document.getElementById('stat-remaining').textContent    = Math.max(0, (n>1 ? Math.floor(n*(n-1)/2) : 0) - m);
+
+    const countMap = {};
+    allProfiles.forEach(p => { countMap[p.uid] = 0; });
+    allMatches.forEach(mx => {
+      if (countMap[mx.uid1] !== undefined) countMap[mx.uid1]++;
+      if (countMap[mx.uid2] !== undefined) countMap[mx.uid2]++;
+    });
+
+    const grid = document.getElementById('profile-grid');
+    if (!allProfiles.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <div class="emoji">👥</div>
+        <p>${t('home_empty')}<br>
+        <a href="#" onclick="showView('register')" style="color:var(--accent2)">${t('home_empty_link')}</a></p>
+      </div>`;
+      return;
+    }
+    grid.innerHTML = allProfiles.map(p => {
+      const langChips = (p.languages||[]).map(l=>`<span class="chip lang">${l==='ko'?'🇰🇷 KO':'🇺🇸 EN'}</span>`).join('');
+      const tagChips  = [...(p.foods||[]).slice(0,2), ...(p.hobbies||[]).slice(0,2)].map(tag=>`<span class="chip">${esc(tag)}</span>`).join('');
+      return `<div class="profile-card" onclick="showView('match');setMatchTarget('${p.uid}')">
+        <span class="match-count-badge">${t('match_count',{n:countMap[p.uid]||0})}</span>
+        <div class="profile-avatar">${genderEmoji(p.gender)}</div>
+        <div class="profile-name">${esc(p.name)}</div>
+        <div class="profile-meta">${p.country?esc(p.country):''}${p.mbti?` · ${p.mbti}`:''}</div>
+        <div class="profile-tags">${langChips}${tagChips}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { toast(t('load_fail')+e.message,'error'); }
+}
+
+// ============================================================
+// [6] 등록 폼 — 프로필 언어 버튼 (앱 UI 언어와 별개)
+// ============================================================
+function toggleProfileLang(lang) {
+  const btn = document.getElementById(`plang-${lang}`);
+  if (selectedProfileLangs.includes(lang)) {
+    selectedProfileLangs = selectedProfileLangs.filter(l=>l!==lang);
+    btn.classList.remove('selected');
+  } else {
+    selectedProfileLangs.push(lang);
+    btn.classList.add('selected');
+  }
+}
+
+// ============================================================
+// [7] 태그 입력
+// ============================================================
+function initTagInput(inputId, wrapId, tagsRef) {
+  const input = document.getElementById(inputId);
+  const wrap  = document.getElementById(wrapId);
+  input.addEventListener('keydown', e => {
+    if (e.key==='Enter'||e.key===',') {
+      e.preventDefault();
+      const val = input.value.replace(',','').trim();
+      if (val && !tagsRef.includes(val)) {
+        tagsRef.push(val);
+        const tag = document.createElement('span');
+        tag.className='tag'; tag.dataset.tag=val;
+        tag.innerHTML=`${esc(val)} <span class="tag-remove" onclick="removeTag(this,'${esc(val)}')">×</span>`;
+        wrap.insertBefore(tag, input);
+      }
+      input.value='';
+    }
+    if (e.key==='Backspace' && input.value==='' && tagsRef.length>0) {
+      const last=tagsRef[tagsRef.length-1]; tagsRef.pop();
+      wrap.querySelector(`[data-tag="${CSS.escape(last)}"]`)?.remove();
+    }
+  });
+}
+function removeTag(el, val) {
+  const ref = el.closest('#food-wrap') ? foodTags : hobbyTags;
+  const i = ref.indexOf(val); if (i>-1) ref.splice(i,1);
+  el.closest('.tag').remove();
+}
+
+// ============================================================
+// [8] 프로필 저장
+// ============================================================
+async function submitProfile() {
+  const name    = document.getElementById('f-name').value.trim();
+  const gender  = document.getElementById('f-gender').value;
+  const country = document.getElementById('f-country').value.trim();
+  const mbti    = document.getElementById('f-mbti').value;
+  const bio     = document.getElementById('f-bio').value.trim();
+  if (!name)                          { toast(t('err_name'),'error'); return; }
+  if (!selectedProfileLangs.length)   { toast(t('err_lang'),'error'); return; }
+  try {
+    await db.collection(COL_PROFILES).add({
+      name, gender:gender||null, country:country||null, mbti:mbti||null, bio:bio||null,
+      foods:[...foodTags], hobbies:[...hobbyTags], languages:[...selectedProfileLangs],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    toast(t('reg_ok',{name}),'success');
+    resetRegisterForm();
+  } catch(e) { toast(t('reg_fail')+e.message,'error'); }
+}
+function resetRegisterForm() {
+  ['f-name','f-gender','f-country','f-mbti','f-bio'].forEach(id=>{ document.getElementById(id).value=''; });
+  selectedProfileLangs=[]; foodTags=[]; hobbyTags=[];
+  ['plang-ko','plang-en'].forEach(id=>document.getElementById(id).classList.remove('selected'));
+  ['food-wrap','hobby-wrap'].forEach(wid=>{
+    const wrap=document.getElementById(wid), inp=wrap.querySelector('.tag-text-input');
+    wrap.querySelectorAll('.tag').forEach(tg=>tg.remove()); wrap.appendChild(inp);
+  });
+}
+
+// ============================================================
+// [9] 매칭 뷰 초기화
+// ============================================================
+async function loadMatchView() {
+  const snap = await db.collection(COL_PROFILES).orderBy('name').get();
+  allProfiles = snap.docs.map(d=>({uid:d.id,...d.data()}));
+  const select=document.getElementById('match-target'), prev=select.value;
+  select.innerHTML=`<option value="">${t('match_select_ph')}</option>`
+    +allProfiles.map(p=>`<option value="${p.uid}">${esc(p.name)}</option>`).join('');
+  if (prev) select.value=prev;
+  if (currentTargetUid) select.value=currentTargetUid;
+  if (!currentCandidateUid)
+    document.getElementById('match-arena-wrap').innerHTML=`<div class="empty-state"><div class="emoji">🎯</div><p>${t('match_empty')}</p></div>`;
+}
+function setMatchTarget(uid) {
+  currentTargetUid=uid;
+  setTimeout(()=>{ const s=document.getElementById('match-target'); if(s){s.value=uid;loadMatchCandidate();} },100);
+}
+
+// ============================================================
+// [10] 매칭 추천 알고리즘 (핵심)
+// ============================================================
+async function loadMatchCandidate() {
+  const targetUid=document.getElementById('match-target').value;
+  currentTargetUid=targetUid; currentCandidateUid=null;
+  const arenaWrap=document.getElementById('match-arena-wrap');
+  const confirmArea=document.getElementById('match-confirm-area');
+  confirmArea.style.display='none';
+  if (!targetUid) {
+    arenaWrap.innerHTML=`<div class="empty-state"><div class="emoji">🎯</div><p>${t('match_empty')}</p></div>`;
+    return;
+  }
+  arenaWrap.innerHTML=`<div class="empty-state"><div class="spinner"></div><p style="margin-top:12px">${t('match_loading')}</p></div>`;
+  try {
+    // Firestore OR 쿼리 미지원 → 두 번 조회 합산
+    const [q1,q2] = await Promise.all([
+      db.collection(COL_MATCHES).where('uid1','==',targetUid).get(),
+      db.collection(COL_MATCHES).where('uid2','==',targetUid).get()
+    ]);
+    const matchedUids=new Set();
+    q1.docs.forEach(d=>matchedUids.add(d.data().uid2));
+    q2.docs.forEach(d=>matchedUids.add(d.data().uid1));
+
+    const candidates=allProfiles.filter(p=>p.uid!==targetUid&&!matchedUids.has(p.uid));
+    if (!candidates.length) {
+      const name=esc(getProfile(targetUid)?.name||'');
+      arenaWrap.innerHTML=`<div class="empty-state"><div class="emoji">🎉</div>
+        <p><strong>${name}</strong> — ${t('match_done',{name:''})}<br>
+        <span class="text-muted text-sm">${t('match_done_hint')}</span></p></div>`;
+      return;
+    }
+    // 랜덤 후보 선정 (향후: 공통 취미·언어 우선으로 개선 가능)
+    const candidate=candidates[Math.floor(Math.random()*candidates.length)];
+    currentCandidateUid=candidate.uid;
+    arenaWrap.innerHTML=renderArena(getProfile(targetUid), candidate, matchedUids.size, candidates.length);
+    confirmArea.style.display='block';
+  } catch(e) { toast(t('match_load_fail')+e.message,'error'); }
+}
+
+function renderArena(pA, pB, alreadyCount, remainCount) {
+  return `<div style="margin-bottom:10px;text-align:center;font-size:12px;color:var(--text-muted)">
+    ${t('match_info',{name:esc(pA.name),count:alreadyCount,remain:remainCount})}
+  </div>
+  <div class="match-arena">${renderMatchCard(pA)}<div class="vs-badge">VS</div>${renderMatchCard(pB)}</div>`;
+}
+function renderMatchCard(p) {
+  const langStr=(p.languages||[]).map(l=>l==='ko'?'🇰🇷':'🇺🇸').join(' ');
+  const foods=(p.foods||[]).slice(0,3).join(', ')||'—';
+  const hobbies=(p.hobbies||[]).slice(0,3).join(', ')||'—';
+  return `<div class="match-card">
+    <div class="match-avatar">${genderEmoji(p.gender)}</div>
+    ${p.mbti?`<div class="match-mbti">${p.mbti}</div>`:''}
+    <div class="match-name">${esc(p.name)}</div>
+    <div style="font-size:18px;margin-bottom:8px">${langStr}</div>
+    <div class="match-detail">
+      ${p.country?`🌍 ${esc(p.country)}<br>`:''}
+      🍱 ${esc(foods)}<br>🎨 ${esc(hobbies)}<br>
+      ${p.bio?`💬 ${esc(p.bio.slice(0,40))}...`:''}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// [11] 매칭 확정 (Transaction 원자적 처리)
+// ============================================================
+async function confirmMatch() {
+  if (!currentTargetUid||!currentCandidateUid) { toast(t('match_no_target'),'error'); return; }
+  const btn=document.getElementById('confirm-btn');
+  btn.disabled=true; btn.textContent=t('match_saving');
+  try {
+    await saveMatch(currentTargetUid, currentCandidateUid, 'auto');
+    toast(t('match_saved',{a:getProfile(currentTargetUid)?.name, b:getProfile(currentCandidateUid)?.name}),'success');
+    await loadMatchCandidate();
+  } catch(e) {
+    if (e.message==='ALREADY_MATCHED') { toast(t('match_already'),'info'); await loadMatchCandidate(); }
+    else toast(t('match_fail')+e.message,'error');
+  } finally { btn.disabled=false; btn.textContent=t('match_confirm'); }
+}
+
+// ============================================================
+// [12] 매칭 저장 — pairKey 기반 Firestore Transaction
+// pairKey = sorted([uid1,uid2]).join('_')  →  A↔B = B↔A 보장
+// ============================================================
+async function saveMatch(uid1, uid2, type='auto') {
+  const sorted=[uid1,uid2].sort();
+  const pairKey=sorted[0]+'_'+sorted[1];
+  const ref=db.collection(COL_MATCHES).doc(pairKey);
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    if (snap.exists) throw new Error('ALREADY_MATCHED');
+    tx.set(ref,{ uid1:sorted[0], uid2:sorted[1], pairKey, type, createdAt:firebase.firestore.FieldValue.serverTimestamp() });
+  });
+}
+
+// ============================================================
+// [13] 관리자 뷰
+// ============================================================
+async function loadAdminView() {
+  const [pSnap,mSnap]=await Promise.all([
+    db.collection(COL_PROFILES).orderBy('name').get(),
+    db.collection(COL_MATCHES).orderBy('createdAt','desc').get()
+  ]);
+  allProfiles=pSnap.docs.map(d=>({uid:d.id,...d.data()}));
+  allMatches=mSnap.docs.map(d=>({id:d.id,...d.data()}));
+  renderAdminPickList('admin-list-a');
+  renderAdminPickList('admin-list-b');
+  renderMatchHistory();
+}
+function renderAdminPickList(listId) {
+  const isA=listId==='admin-list-a';
+  document.getElementById(listId).innerHTML=allProfiles.map(p=>`
+    <div class="admin-pick-item" id="${listId}-${p.uid}" onclick="adminPick('${isA?'A':'B'}','${p.uid}','${esc(p.name)}')">
+      ${genderEmoji(p.gender)} ${esc(p.name)}
+      ${p.mbti?`<span class="chip" style="margin-left:auto;font-size:10px">${p.mbti}</span>`:''}
+    </div>`).join('');
+}
+function adminPick(side,uid,name) {
+  if (side==='A') {
+    adminPickA={uid,name};
+    document.querySelectorAll('#admin-list-a .admin-pick-item').forEach(el=>el.classList.remove('selected'));
+    document.getElementById(`admin-list-a-${uid}`)?.classList.add('selected');
+  } else {
+    adminPickB={uid,name};
+    document.querySelectorAll('#admin-list-b .admin-pick-item').forEach(el=>el.classList.remove('selected'));
+    document.getElementById(`admin-list-b-${uid}`)?.classList.add('selected');
+  }
+  const preview=document.getElementById('admin-selected-preview');
+  const text=document.getElementById('admin-preview-text');
+  if (adminPickA&&adminPickB) {
+    preview.style.display='block';
+    text.textContent=`${adminPickA.name}  ↔  ${adminPickB.name}`;
+    if (adminPickA.uid===adminPickB.uid) text.innerHTML+=` <span style="color:var(--accent)">${t('admin_same_person')}</span>`;
+  } else preview.style.display='none';
+}
+async function submitManualMatch() {
+  if (!adminPickA||!adminPickB) { toast(t('admin_err_select'),'error'); return; }
+  if (adminPickA.uid===adminPickB.uid) { toast(t('admin_err_same'),'error'); return; }
+  try {
+    await saveMatch(adminPickA.uid, adminPickB.uid, 'manual');
+    toast(t('admin_saved',{a:adminPickA.name,b:adminPickB.name}),'success');
+    adminPickA=adminPickB=null; loadAdminView();
+  } catch(e) {
+    if (e.message==='ALREADY_MATCHED') toast(t('admin_already'),'info');
+    else toast(t('admin_fail')+e.message,'error');
+  }
+}
+function renderMatchHistory() {
+  const container=document.getElementById('match-history-list');
+  if (!allMatches.length) {
+    container.innerHTML=`<div class="empty-state"><div class="emoji">📋</div><p>${t('admin_history_empty')}</p></div>`;
+    return;
+  }
+  const locale=uiLang==='ko'?'ko-KR':'en-US';
+  container.innerHTML=`<div class="match-list">${allMatches.map(m=>{
+    const p1=getProfile(m.uid1), p2=getProfile(m.uid2);
+    const date=m.createdAt?.toDate?m.createdAt.toDate().toLocaleDateString(locale):'—';
+    const badge=m.type==='manual'
+      ?`<span class="badge badge-manual">${t('badge_manual')}</span>`
+      :`<span class="badge badge-auto">${t('badge_auto')}</span>`;
+    return `<div class="match-item">
+      ${badge}
+      <div class="pair-names">${p1?esc(p1.name):m.uid1.slice(0,6)} ↔ ${p2?esc(p2.name):m.uid2.slice(0,6)}</div>
+      <div class="pair-date">${date}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ============================================================
+// [14] 유틸
+// ============================================================
+function getProfile(uid) { return allProfiles.find(p=>p.uid===uid)||null; }
+function genderEmoji(g) { return g==='female'?'👩':g==='male'?'👨':'🧑'; }
+function esc(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+let toastTimer=null;
+function toast(msg,type='info') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.className='';},3500);
+}
+
+// ============================================================
+// [15] 앱 초기화
+// ============================================================
+document.addEventListener('DOMContentLoaded',()=>{
+  initTagInput('food-input','food-wrap',foodTags);
+  initTagInput('hobby-input','hobby-wrap',hobbyTags);
+  // 저장된 UI 언어 적용 (localStorage)
+  applyI18n();
+  syncLangToggleUI();
+  loadHome();
+});
+</script>
+</body>
+</html>
