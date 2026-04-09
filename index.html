@@ -159,6 +159,50 @@
     .chip.lang { border: 1px solid var(--accent3); color: var(--accent3); background: rgba(224,168,92,0.08); }
     .match-count-badge { position: absolute; top: 12px; right: 12px; font-size: 10px; padding: 2px 7px; border-radius: 20px; background: var(--surface3); color: var(--text-muted); }
 
+    /* ── Delete button on card ── */
+    .card-del-btn {
+      position: absolute; bottom: 12px; right: 12px;
+      background: none; border: 1px solid transparent;
+      color: var(--text-muted); font-size: 14px; border-radius: 8px;
+      padding: 3px 7px; cursor: pointer; transition: var(--transition);
+      line-height: 1; opacity: 0;
+    }
+    .profile-card:hover .card-del-btn { opacity: 1; }
+    .card-del-btn:hover { background: rgba(224,92,92,0.15); border-color: var(--accent); color: var(--accent); }
+
+    /* ── Danger button ── */
+    .btn-danger { background: rgba(224,92,92,0.12); color: var(--accent); border: 1px solid rgba(224,92,92,0.3); }
+    .btn-danger:hover { background: rgba(224,92,92,0.22); border-color: var(--accent); transform: translateY(-1px); }
+
+    /* ── Home action row ── */
+    .home-action-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .home-action-row .section-title { margin-bottom: 0; }
+
+    /* ── Password Modal ── */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 500;
+      background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
+    }
+    .modal-backdrop.open { opacity: 1; pointer-events: all; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px 28px 24px;
+      width: 360px; max-width: 90vw;
+      transform: scale(0.94) translateY(10px);
+      transition: transform 0.22s ease;
+    }
+    .modal-backdrop.open .modal-box { transform: scale(1) translateY(0); }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .modal-desc  { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    @keyframes shake {
+      0%,100%{ transform:translateX(0) }
+      20%    { transform:translateX(-6px) }
+      60%    { transform:translateX(6px) }
+    }
+
     /* ── Match arena ── */
     .match-arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 24px 0; }
     .match-card { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; padding: 28px 22px; text-align: center; transition: var(--transition); position: relative; overflow: hidden; }
@@ -268,8 +312,16 @@
       </div>
     </div>
 
-    <h1 class="section-title" data-i18n="home_title">참가자 목록</h1>
-    <p class="section-sub" data-i18n="home_sub">등록된 참가자들과 전체 매칭 현황을 확인하세요.</p>
+    <div class="home-action-row">
+      <div>
+        <h1 class="section-title" data-i18n="home_title">참가자 목록</h1>
+        <p class="section-sub" style="margin-bottom:0" data-i18n="home_sub">등록된 참가자들과 전체 매칭 현황을 확인하세요.</p>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="openDeleteAllModal()">
+        🗑 <span data-i18n="home_delete_all">전체 삭제</span>
+      </button>
+    </div>
+    <div style="margin-bottom:28px"></div>
 
     <div class="stats-row">
       <div class="stat-card">
@@ -434,18 +486,40 @@
   </div>
 </div>
 
+<!-- =====================================================  PASSWORD MODAL  -->
+<div class="modal-backdrop" id="pw-modal" onclick="closeModal(event)">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">전체 삭제 확인</div>
+    <div class="modal-desc" id="modal-desc">
+      모든 참가자와 매칭 기록이 삭제됩니다.<br>관리자 비밀번호를 입력하세요.
+    </div>
+    <input id="modal-pw-input" class="form-input" type="password"
+           placeholder="비밀번호 입력" autocomplete="off"
+           onkeydown="if(event.key==='Enter') confirmModalAction()" />
+    <div id="modal-pw-error" style="color:var(--accent);font-size:12px;margin-top:6px;min-height:18px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary btn-sm" onclick="closeModal()">
+        <span data-i18n="modal_cancel">취소</span>
+      </button>
+      <button class="btn btn-danger btn-sm" onclick="confirmModalAction()">
+        <span data-i18n="modal_delete_confirm">🗑 삭제 실행</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- =====================================================  JS  -->
 <script>
 // ============================================================
 // [0] Firebase 초기화  ⚠️ firebaseConfig를 본인 설정으로 교체하세요
 // ============================================================
 const firebaseConfig = {
-  apiKey:            "AIzaSyCxevyQ1zzTlH6YHdtRv77Su8eTNMSDthQ",
-  authDomain:        "pair-up-app-ccf9c.firebaseapp.com",
-  projectId:         "pair-up-app-ccf9c",
-  storageBucket:     "pair-up-app-ccf9c.firebasestorage.app",
+  apiKey: "AIzaSyCxevyQ1zzTlH6YHdtRv77Su8eTNMSDthQ",
+  authDomain: "pair-up-app-ccf9c.firebaseapp.com",
+  projectId: "pair-up-app-ccf9c",
+  storageBucket: "pair-up-app-ccf9c.firebasestorage.app",
   messagingSenderId: "488560766569",
-  appId:             "1:488560766569:web:b7e60e4f420cdfe7673cf8"
+  appId: "1:488560766569:web:b7e60e4f420cdfe7673cf8"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -503,6 +577,18 @@ const TRANSLATIONS = {
     admin_fail:'저장 실패: ', badge_auto:'자동', badge_manual:'수동',
     err_name:'이름을 입력해주세요.', err_lang:'언어를 최소 1개 선택해주세요.',
     reg_ok:'✦ {name}님 등록 완료!', reg_fail:'저장 실패: ', load_fail:'데이터 로드 실패: ',
+    home_delete_all:'전체 삭제',
+    del_confirm_title:'참가자 삭제',
+    del_confirm_desc:'"{name}" 참가자와 관련된 모든 매칭 기록도 함께 삭제됩니다.',
+    del_all_title:'전체 삭제 확인',
+    del_all_desc:'모든 참가자와 매칭 기록이 영구 삭제됩니다.\n관리자 비밀번호를 입력하세요.',
+    del_pw_wrong:'비밀번호가 올바르지 않습니다.',
+    del_pw_ph:'비밀번호 입력',
+    del_ok:'🗑 {name} 삭제 완료',
+    del_all_ok:'✓ 전체 데이터 삭제 완료',
+    del_fail:'삭제 실패: ',
+    modal_cancel:'취소',
+    modal_delete_confirm:'🗑 삭제 실행',
   },
   en: {
     nav_home:'Home', nav_register:'Register', nav_match:'Match', nav_admin:'Admin',
@@ -542,6 +628,18 @@ const TRANSLATIONS = {
     admin_fail:'Save failed: ', badge_auto:'Auto', badge_manual:'Manual',
     err_name:'Please enter a name.', err_lang:'Please select at least one language.',
     reg_ok:'✦ {name} registered!', reg_fail:'Save failed: ', load_fail:'Load failed: ',
+    home_delete_all:'Delete All',
+    del_confirm_title:'Delete Participant',
+    del_confirm_desc:'All match records related to "{name}" will also be deleted.',
+    del_all_title:'Delete All — Confirm',
+    del_all_desc:'All participants and match records will be permanently deleted.\nEnter admin password.',
+    del_pw_wrong:'Incorrect password.',
+    del_pw_ph:'Enter password',
+    del_ok:'🗑 {name} deleted',
+    del_all_ok:'✓ All data deleted',
+    del_fail:'Delete failed: ',
+    modal_cancel:'Cancel',
+    modal_delete_confirm:'🗑 Delete',
   }
 };
 
@@ -657,6 +755,8 @@ async function loadHome() {
         <div class="profile-name">${esc(p.name)}</div>
         <div class="profile-meta">${p.country?esc(p.country):''}${p.mbti?` · ${p.mbti}`:''}</div>
         <div class="profile-tags">${langChips}${tagChips}</div>
+        <button class="card-del-btn" title="${t('del_confirm_title')}"
+          onclick="event.stopPropagation(); openDeleteOneModal('${p.uid}','${esc(p.name)}')">🗑</button>
       </div>`;
     }).join('');
   } catch(e) { toast(t('load_fail')+e.message,'error'); }
@@ -726,6 +826,8 @@ async function submitProfile() {
     });
     toast(t('reg_ok',{name}),'success');
     resetRegisterForm();
+    // 등록 완료 후 홈으로 자동 이동
+    setTimeout(() => showView('home'), 600);
   } catch(e) { toast(t('reg_fail')+e.message,'error'); }
 }
 function resetRegisterForm() {
@@ -926,7 +1028,130 @@ function renderMatchHistory() {
 }
 
 // ============================================================
-// [14] 유틸
+// [14] 삭제 기능 — 개별 삭제 / 전체 삭제 (비밀번호: 1234)
+// ============================================================
+
+const DELETE_PASSWORD = '1234';
+
+// 모달 내부 상태
+let modalAction = null;  // 'one' | 'all'
+let modalTargetUid  = null;
+let modalTargetName = null;
+
+/** 개별 삭제 모달 오픈 */
+function openDeleteOneModal(uid, name) {
+  modalAction     = 'one';
+  modalTargetUid  = uid;
+  modalTargetName = name;
+  document.getElementById('modal-title').textContent = t('del_confirm_title');
+  document.getElementById('modal-desc').textContent  = t('del_confirm_desc', {name});
+  document.getElementById('modal-pw-input').placeholder = t('del_pw_ph');
+  openModal();
+}
+
+/** 전체 삭제 모달 오픈 */
+function openDeleteAllModal() {
+  modalAction     = 'all';
+  modalTargetUid  = null;
+  modalTargetName = null;
+  document.getElementById('modal-title').textContent = t('del_all_title');
+  document.getElementById('modal-desc').textContent  = t('del_all_desc');
+  document.getElementById('modal-pw-input').placeholder = t('del_pw_ph');
+  openModal();
+}
+
+function openModal() {
+  document.getElementById('modal-pw-input').value = '';
+  document.getElementById('modal-pw-error').textContent = '';
+  document.getElementById('pw-modal').classList.add('open');
+  setTimeout(() => document.getElementById('modal-pw-input').focus(), 120);
+}
+
+function closeModal(e) {
+  // backdrop 클릭 시 modal-box 내부면 닫지 않음
+  if (e && e.target !== document.getElementById('pw-modal')) return;
+  document.getElementById('pw-modal').classList.remove('open');
+}
+
+/** 모달 확인 버튼 — 비밀번호 검증 후 삭제 실행 */
+async function confirmModalAction() {
+  const pw = document.getElementById('modal-pw-input').value;
+  const errEl = document.getElementById('modal-pw-error');
+  if (pw !== DELETE_PASSWORD) {
+    errEl.textContent = t('del_pw_wrong');
+    document.getElementById('modal-pw-input').focus();
+    // 입력창 흔들기 애니메이션
+    document.getElementById('modal-pw-input').style.animation = 'shake 0.3s ease';
+    setTimeout(() => document.getElementById('modal-pw-input').style.animation = '', 300);
+    return;
+  }
+  errEl.textContent = '';
+  document.getElementById('pw-modal').classList.remove('open');
+
+  if (modalAction === 'one') {
+    await deleteOneProfile(modalTargetUid, modalTargetName);
+  } else {
+    await deleteAllData();
+  }
+}
+
+/**
+ * 개별 삭제:
+ * 1. profiles/{uid} 문서 삭제
+ * 2. 해당 uid가 포함된 모든 matches 문서도 삭제 (관련 매칭 기록 정리)
+ */
+async function deleteOneProfile(uid, name) {
+  try {
+    // 해당 참가자가 포함된 매칭 조회 (uid1 또는 uid2)
+    const [q1, q2] = await Promise.all([
+      db.collection(COL_MATCHES).where('uid1','==',uid).get(),
+      db.collection(COL_MATCHES).where('uid2','==',uid).get()
+    ]);
+
+    // Firestore batch로 원자적 삭제
+    const batch = db.batch();
+    batch.delete(db.collection(COL_PROFILES).doc(uid));
+    q1.docs.forEach(d => batch.delete(d.ref));
+    q2.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+
+    toast(t('del_ok', {name}), 'success');
+    loadHome(); // 홈 새로고침
+  } catch(e) {
+    toast(t('del_fail') + e.message, 'error');
+  }
+}
+
+/**
+ * 전체 삭제:
+ * profiles 컬렉션 + matches 컬렉션 모든 문서 삭제
+ * Firestore batch는 500개 제한 → 청크로 나눠 처리
+ */
+async function deleteAllData() {
+  try {
+    const [pSnap, mSnap] = await Promise.all([
+      db.collection(COL_PROFILES).get(),
+      db.collection(COL_MATCHES).get()
+    ]);
+
+    const allDocs = [...pSnap.docs, ...mSnap.docs];
+    // 500개씩 청크로 나눠 batch 삭제
+    const CHUNK = 400;
+    for (let i = 0; i < allDocs.length; i += CHUNK) {
+      const batch = db.batch();
+      allDocs.slice(i, i + CHUNK).forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    toast(t('del_all_ok'), 'success');
+    loadHome();
+  } catch(e) {
+    toast(t('del_fail') + e.message, 'error');
+  }
+}
+
+// ============================================================
+// [16] 유틸
 // ============================================================
 function getProfile(uid) { return allProfiles.find(p=>p.uid===uid)||null; }
 function genderEmoji(g) { return g==='female'?'👩':g==='male'?'👨':'🧑'; }
@@ -943,7 +1168,7 @@ function toast(msg,type='info') {
 }
 
 // ============================================================
-// [15] 앱 초기화
+// [17] 앱 초기화
 // ============================================================
 document.addEventListener('DOMContentLoaded',()=>{
   initTagInput('food-input','food-wrap',foodTags);
