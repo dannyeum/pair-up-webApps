@@ -203,6 +203,90 @@
       60%    { transform:translateX(6px) }
     }
 
+    /* ════════════════════════════════════════
+       BATCH VIEW — 전체 매칭 화면
+       ════════════════════════════════════════ */
+    .batch-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:20px; }
+    .batch-header-left .section-title { margin-bottom:4px; }
+    .batch-stats-bar { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:24px; }
+    .batch-stat { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
+    .batch-stat strong { color:var(--accent2); font-family:var(--font-disp); font-size:18px; line-height:1; }
+
+    /* Two-column layout */
+    .batch-layout { display:grid; grid-template-columns:1fr 1fr; gap:20px; align-items:start; }
+    .batch-panel-label { font-size:10px; font-weight:700; color:var(--text-muted); letter-spacing:1.2px; text-transform:uppercase; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+
+    /* Left — participant rows */
+    .batch-people-grid { display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow-y:auto; padding-right:4px; }
+    .batch-person-row {
+      background:var(--surface); border:1px solid var(--border);
+      border-radius:12px; padding:12px 14px;
+      display:flex; align-items:center; gap:10px;
+      transition:border-color 0.35s, box-shadow 0.35s;
+    }
+    .batch-person-row.matched {
+      border-color:var(--success);
+      box-shadow:0 0 12px rgba(92,222,168,0.18);
+    }
+    .batch-person-row.waiting { border-color:var(--accent3); }
+    .batch-person-avatar { font-size:20px; line-height:1; flex-shrink:0; }
+    .batch-person-info { flex:1; min-width:0; }
+    .batch-person-name { font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .batch-person-history { font-size:10px; color:var(--text-muted); margin-top:3px; line-height:1.6; }
+    .batch-person-history .hist-names { color:var(--text-muted); }
+    .batch-person-reel-wrap { flex-shrink:0; }
+    .batch-reel {
+      font-size:12px; font-weight:600; color:var(--text-muted);
+      padding:4px 10px; border-radius:8px; min-width:90px; text-align:center;
+      border:1px solid var(--border); background:var(--surface2);
+      display:inline-block; transition:all 0.2s;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;
+    }
+    .batch-reel.spinning {
+      color:var(--accent3); border-color:var(--accent3);
+      background:rgba(224,168,92,0.08);
+      animation:reelFlicker 0.09s infinite;
+    }
+    .batch-reel.locked {
+      color:var(--success); border-color:var(--success);
+      background:rgba(92,222,168,0.1);
+      animation:matchReveal 0.42s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .batch-reel.bye { font-size:10px; font-style:italic; opacity:0.5; }
+
+    /* Right — results list */
+    .batch-results-list { display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow-y:auto; padding-right:4px; }
+    .batch-result-pair {
+      background:var(--surface2); border:1px solid var(--border);
+      border-radius:12px; padding:12px 16px;
+      display:grid; grid-template-columns:1fr auto 1fr auto;
+      align-items:center; gap:8px;
+      animation:pairSlideIn 0.38s ease both;
+    }
+    .batch-result-pair .pr-name-a { font-weight:600; font-size:13px; }
+    .batch-result-pair .pr-name-b { font-weight:600; font-size:13px; text-align:right; }
+    .batch-result-pair .pr-vs { font-family:var(--font-disp); font-size:20px; color:var(--accent); font-weight:700; text-align:center; padding:0 2px; }
+    .batch-result-pair .pr-date { font-size:10px; color:var(--text-muted); white-space:nowrap; }
+    .batch-result-pair .badge { flex-shrink:0; }
+
+    /* Home card past matches */
+    .profile-past-matches { font-size:10px; color:var(--text-muted); margin-top:6px; padding-top:6px; border-top:1px solid var(--border); line-height:1.7; }
+
+    @keyframes reelFlicker {
+      0%,100%{ opacity:1; transform:translateY(0) scaleY(1) }
+      50%    { opacity:0.25; transform:translateY(-2px) scaleY(0.85) }
+    }
+    @keyframes matchReveal {
+      0%   { transform:scale(0.7); opacity:0 }
+      60%  { transform:scale(1.12) }
+      100% { transform:scale(1);   opacity:1 }
+    }
+    @keyframes pairSlideIn {
+      from { transform:translateX(18px); opacity:0 }
+      to   { transform:translateX(0);    opacity:1 }
+    }
+    @media (max-width:720px) { .batch-layout { grid-template-columns:1fr; } }
+
     /* ── Match arena ── */
     .match-arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; margin: 24px 0; }
     .match-card { background: var(--surface); border: 2px solid var(--border); border-radius: 20px; padding: 28px 22px; text-align: center; transition: var(--transition); position: relative; overflow: hidden; }
@@ -279,6 +363,9 @@
   </button>
   <button class="nav-btn" onclick="showView('admin')">
     ⚙️ <span class="nav-label" data-i18n="nav_admin">관리</span>
+  </button>
+  <button class="nav-btn" onclick="showView('batch')">
+    🎲 <span class="nav-label" data-i18n="nav_batch">전체매칭</span>
   </button>
   <!-- ★ UI Language pill — always in nav -->
   <div class="ui-lang-toggle">
@@ -486,6 +573,62 @@
   </div>
 </div>
 
+<!-- =====================================================  VIEW 5: BATCH MATCH  -->
+<div id="view-batch" class="view">
+  <div class="container">
+
+    <!-- Header -->
+    <div class="batch-header">
+      <div class="batch-header-left">
+        <h1 class="section-title" data-i18n="batch_title">전체 매칭</h1>
+        <p class="section-sub" style="margin-bottom:0" data-i18n="batch_sub">모든 참가자를 한 번에 1:1 매칭합니다. 슬롯 애니메이션으로 매칭 과정을 확인하세요.</p>
+      </div>
+      <button class="btn btn-primary" id="batch-start-btn" onclick="runBatchMatch()">
+        🎲 <span data-i18n="batch_start">이번 라운드 매칭 시작</span>
+      </button>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="batch-stats-bar">
+      <div class="batch-stat">
+        <strong id="b-stat-people">—</strong>
+        <span data-i18n="stat_participants">총 참가자</span>
+      </div>
+      <div class="batch-stat">
+        <strong id="b-stat-done">—</strong>
+        <span data-i18n="stat_matches">완료된 매칭</span>
+      </div>
+      <div class="batch-stat">
+        <strong id="b-stat-left">—</strong>
+        <span data-i18n="stat_remaining">가능한 조합 수</span>
+      </div>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="batch-layout">
+
+      <!-- Left: Participants + history + reel -->
+      <div>
+        <div class="batch-panel-label" data-i18n="batch_people">참가자 &amp; 매칭 이력</div>
+        <div class="batch-people-grid" id="batch-people-grid">
+          <div class="empty-state"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Right: Match history / results -->
+      <div>
+        <div class="batch-panel-label" data-i18n="batch_results_label">전체 매칭 기록</div>
+        <div class="batch-results-list" id="batch-results-list">
+          <div class="empty-state" style="padding:24px 0">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <!-- =====================================================  PASSWORD MODAL  -->
 <div class="modal-backdrop" id="pw-modal" onclick="closeModal(event)">
   <div class="modal-box">
@@ -589,6 +732,20 @@ const TRANSLATIONS = {
     del_fail:'삭제 실패: ',
     modal_cancel:'취소',
     modal_delete_confirm:'🗑 삭제 실행',
+    nav_batch:'전체매칭',
+    batch_title:'전체 매칭',
+    batch_sub:'모든 참가자를 한 번에 1:1 매칭합니다. 슬롯 애니메이션으로 매칭 과정을 확인하세요.',
+    batch_start:'이번 라운드 매칭 시작',
+    batch_running:'⏳ 매칭 진행 중...',
+    batch_done:'🎉 {n}쌍 새로 매칭 완료!',
+    batch_no_more:'모든 가능한 조합이 이미 매칭되었습니다.',
+    batch_need_two:'매칭을 위해 최소 2명이 필요합니다.',
+    batch_people:'참가자 & 매칭 이력',
+    batch_results_label:'전체 매칭 기록',
+    batch_results_empty:'아직 매칭 기록이 없습니다.',
+    batch_no_history:'아직 매칭 없음',
+    batch_past_matches:'이전:',
+    batch_bye:'이번 대기',
   },
   en: {
     nav_home:'Home', nav_register:'Register', nav_match:'Match', nav_admin:'Admin',
@@ -640,6 +797,20 @@ const TRANSLATIONS = {
     del_fail:'Delete failed: ',
     modal_cancel:'Cancel',
     modal_delete_confirm:'🗑 Delete',
+    nav_batch:'Batch',
+    batch_title:'Batch Match',
+    batch_sub:'Match all participants at once. Watch the slot animation reveal each pair.',
+    batch_start:'Start This Round',
+    batch_running:'⏳ Matching...',
+    batch_done:'🎉 {n} new pairs matched!',
+    batch_no_more:'All possible combinations have been matched.',
+    batch_need_two:'At least 2 participants required.',
+    batch_people:'Participants & Match History',
+    batch_results_label:'Full Match History',
+    batch_results_empty:'No matches yet.',
+    batch_no_history:'No matches yet',
+    batch_past_matches:'Past:',
+    batch_bye:'Sitting out',
   }
 };
 
@@ -707,10 +878,11 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`view-${name}`).classList.add('active');
-  document.querySelectorAll('.nav-btn')[['home','register','match','admin'].indexOf(name)].classList.add('active');
+  document.querySelectorAll('.nav-btn')[['home','register','match','admin','batch'].indexOf(name)].classList.add('active');
   if (name === 'home')  loadHome();
   if (name === 'match') loadMatchView();
   if (name === 'admin') loadAdminView();
+  if (name === 'batch') loadBatchView();
 }
 
 // ============================================================
@@ -746,15 +918,30 @@ async function loadHome() {
       </div>`;
       return;
     }
+    // 각 참가자의 과거 매칭 파트너 uid → name 맵 구성
+    const matchedMap = {};
+    allProfiles.forEach(p => { matchedMap[p.uid] = []; });
+    allMatches.forEach(mx => {
+      if (matchedMap[mx.uid1] !== undefined) matchedMap[mx.uid1].push(mx.uid2);
+      if (matchedMap[mx.uid2] !== undefined) matchedMap[mx.uid2].push(mx.uid1);
+    });
+
     grid.innerHTML = allProfiles.map(p => {
       const langChips = (p.languages||[]).map(l=>`<span class="chip lang">${l==='ko'?'🇰🇷 KO':'🇺🇸 EN'}</span>`).join('');
       const tagChips  = [...(p.foods||[]).slice(0,2), ...(p.hobbies||[]).slice(0,2)].map(tag=>`<span class="chip">${esc(tag)}</span>`).join('');
+      // 과거 매칭 파트너 이름 목록
+      const pastNames = (matchedMap[p.uid] || [])
+        .map(uid => allProfiles.find(x=>x.uid===uid)?.name).filter(Boolean);
+      const pastHtml = pastNames.length
+        ? `<div class="profile-past-matches">🔗 ${pastNames.map(n=>`<span>${esc(n)}</span>`).join(' · ')}</div>`
+        : '';
       return `<div class="profile-card" onclick="showView('match');setMatchTarget('${p.uid}')">
         <span class="match-count-badge">${t('match_count',{n:countMap[p.uid]||0})}</span>
         <div class="profile-avatar">${genderEmoji(p.gender)}</div>
         <div class="profile-name">${esc(p.name)}</div>
         <div class="profile-meta">${p.country?esc(p.country):''}${p.mbti?` · ${p.mbti}`:''}</div>
-        <div class="profile-tags">${langChips}${tagChips}</div>
+        ${pastHtml}
+        <div class="profile-tags" style="margin-top:6px">${langChips}${tagChips}</div>
         <button class="card-del-btn" title="${t('del_confirm_title')}"
           onclick="event.stopPropagation(); openDeleteOneModal('${p.uid}','${esc(p.name)}')">🗑</button>
       </div>`;
@@ -1028,7 +1215,244 @@ function renderMatchHistory() {
 }
 
 // ============================================================
-// [14] 삭제 기능 — 개별 삭제 / 전체 삭제 (비밀번호: 1234)
+// [14] 전체 일괄 매칭 — BATCH MATCH VIEW
+// ============================================================
+
+let batchRunning = false;
+
+/** 배치 뷰 진입 시 데이터 로드 */
+async function loadBatchView() {
+  try {
+    const [pSnap, mSnap] = await Promise.all([
+      db.collection(COL_PROFILES).orderBy('name').get(),
+      db.collection(COL_MATCHES).orderBy('createdAt','desc').get()
+    ]);
+    allProfiles = pSnap.docs.map(d=>({uid:d.id,...d.data()}));
+    allMatches  = mSnap.docs.map(d=>({id:d.id,...d.data()}));
+    updateBatchStats();
+    renderBatchPeople();
+    renderBatchResults();
+  } catch(e) { toast(t('load_fail')+e.message,'error'); }
+}
+
+function updateBatchStats() {
+  const n = allProfiles.length, m = allMatches.length;
+  const possible = n>1 ? Math.floor(n*(n-1)/2) : 0;
+  document.getElementById('b-stat-people').textContent = n;
+  document.getElementById('b-stat-done').textContent   = m;
+  document.getElementById('b-stat-left').textContent   = Math.max(0, possible-m);
+}
+
+/** 참가자 목록 + 매칭 이력 + reel 렌더링 */
+function renderBatchPeople() {
+  const matchedMap = buildMatchedMap();
+  const grid = document.getElementById('batch-people-grid');
+  if (!allProfiles.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><p>${t('home_empty')}</p></div>`;
+    return;
+  }
+  grid.innerHTML = allProfiles.map(p => {
+    const history = (matchedMap[p.uid]||[]).map(uid=>getProfile(uid)?.name).filter(Boolean);
+    const histHtml = history.length
+      ? `<span class="hist-names">${history.map(n=>esc(n)).join(' · ')}</span>`
+      : `<span style="font-style:italic">${t('batch_no_history')}</span>`;
+    return `<div class="batch-person-row" id="bpr-${p.uid}">
+      <div class="batch-person-avatar">${genderEmoji(p.gender)}</div>
+      <div class="batch-person-info">
+        <div class="batch-person-name">${esc(p.name)}</div>
+        <div class="batch-person-history">
+          <span style="font-weight:600;margin-right:3px">${t('batch_past_matches')}</span>${histHtml}
+        </div>
+      </div>
+      <div class="batch-person-reel-wrap">
+        <div class="batch-reel" id="reel-${p.uid}">—</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/** 최근 매칭 기록 렌더링 (최신순) */
+function renderBatchResults() {
+  const list = document.getElementById('batch-results-list');
+  if (!allMatches.length) {
+    list.innerHTML = `<div class="empty-state" style="padding:24px 0"><p style="font-size:13px">${t('batch_results_empty')}</p></div>`;
+    return;
+  }
+  const locale = uiLang==='ko'?'ko-KR':'en-US';
+  list.innerHTML = allMatches.slice(0,50).map((m,i) => {
+    const p1=getProfile(m.uid1), p2=getProfile(m.uid2);
+    const date=m.createdAt?.toDate?m.createdAt.toDate().toLocaleDateString(locale):'';
+    const badge=m.type==='manual'
+      ?`<span class="badge badge-manual">${t('badge_manual')}</span>`
+      :`<span class="badge badge-auto">${t('badge_auto')}</span>`;
+    return `<div class="batch-result-pair" style="animation-delay:${Math.min(i,20)*0.03}s">
+      <div class="pr-name-a">${p1?esc(p1.name):'?'}</div>
+      <div class="pr-vs">↔</div>
+      <div class="pr-name-b">${p2?esc(p2.name):'?'}</div>
+      <div class="pr-date">${badge} ${date}</div>
+    </div>`;
+  }).join('');
+}
+
+/** uid → [매칭된 상대 uid 배열] 맵 */
+function buildMatchedMap() {
+  const map = {};
+  allProfiles.forEach(p=>{ map[p.uid]=[]; });
+  allMatches.forEach(m=>{
+    if(map[m.uid1]!==undefined) map[m.uid1].push(m.uid2);
+    if(map[m.uid2]!==undefined) map[m.uid2].push(m.uid1);
+  });
+  return map;
+}
+
+function buildCountMap() {
+  const map={};
+  allProfiles.forEach(p=>{ map[p.uid]=0; });
+  allMatches.forEach(m=>{
+    if(map[m.uid1]!==undefined) map[m.uid1]++;
+    if(map[m.uid2]!==undefined) map[m.uid2]++;
+  });
+  return map;
+}
+
+/**
+ * 이번 라운드 일괄 매칭 실행
+ *
+ * 알고리즘:
+ * 1. 기존 pairKey Set 구성
+ * 2. 매칭 횟수 적은 사람 우선 정렬
+ * 3. 탐욕적 그리디 매칭 (아직 이번 라운드 미배정 & 기존 미매칭 조건)
+ * 4. 각 쌍에 슬롯 애니메이션 → Firestore 저장
+ */
+async function runBatchMatch() {
+  if (batchRunning) return;
+  if (allProfiles.length < 2) { toast(t('batch_need_two'),'error'); return; }
+
+  batchRunning = true;
+  const btn = document.getElementById('batch-start-btn');
+  btn.disabled = true;
+  btn.textContent = t('batch_running');
+
+  // 기존 pairKey Set
+  const existingPairs = new Set(allMatches.map(m=> m.pairKey || makePairKey(m.uid1,m.uid2)));
+
+  // 매칭 횟수 적은 순 정렬
+  const countMap = buildCountMap();
+  const sorted   = [...allProfiles].sort((a,b)=>(countMap[a.uid]||0)-(countMap[b.uid]||0));
+
+  // 그리디 쌍 생성
+  const thisRound = [];
+  const used      = new Set();
+  for (const person of sorted) {
+    if (used.has(person.uid)) continue;
+    const candidates = sorted.filter(p=>
+      p.uid!==person.uid && !used.has(p.uid) && !existingPairs.has(makePairKey(person.uid,p.uid))
+    );
+    if (!candidates.length) continue;
+    const partner = candidates[0]; // 매칭 횟수 가장 적은 후보
+    thisRound.push({uid1:person.uid, uid2:partner.uid});
+    used.add(person.uid); used.add(partner.uid);
+  }
+
+  if (!thisRound.length) {
+    toast(t('batch_no_more'),'info');
+    btn.disabled=false; btn.innerHTML=`🎲 <span>${t('batch_start')}</span>`;
+    batchRunning=false; return;
+  }
+
+  // 모든 reel 초기화
+  allProfiles.forEach(p=>{
+    const r=document.getElementById(`reel-${p.uid}`);
+    if(r){r.className='batch-reel'; r.textContent='—';}
+    const row=document.getElementById(`bpr-${p.uid}`);
+    if(row) row.className='batch-person-row';
+  });
+
+  const involvedUids = new Set(thisRound.flatMap(p=>[p.uid1,p.uid2]));
+  const namePool     = allProfiles.map(p=>p.name);
+
+  // 대기자 표시
+  allProfiles.forEach(p=>{
+    if(!involvedUids.has(p.uid)){
+      const r=document.getElementById(`reel-${p.uid}`);
+      if(r){r.className='batch-reel bye'; r.textContent=t('batch_bye');}
+    }
+  });
+
+  // 참여 쌍 모두 spinning 시작
+  thisRound.forEach(pair=>{
+    [pair.uid1,pair.uid2].forEach(uid=>{
+      const r=document.getElementById(`reel-${uid}`);
+      if(r){r.className='batch-reel spinning'; r.textContent='...';}
+    });
+  });
+
+  // 쌍별 순서대로: 딜레이 → 애니메이션 → 저장
+  const savedPairs = [];
+  for (let i=0; i<thisRound.length; i++) {
+    const {uid1,uid2}=thisRound[i];
+    const name1=getProfile(uid1)?.name||'';
+    const name2=getProfile(uid2)?.name||'';
+    await delay(i*220); // 쌍마다 순서감 있게 딜레이
+    // 두 reel 동시에 슬롯 애니메이션
+    await Promise.all([
+      animateReel(document.getElementById(`reel-${uid1}`), namePool, name2),
+      animateReel(document.getElementById(`reel-${uid2}`), namePool, name1)
+    ]);
+    try {
+      await saveMatch(uid1,uid2,'auto');
+      savedPairs.push({uid1,uid2});
+      document.getElementById(`bpr-${uid1}`)?.classList.add('matched');
+      document.getElementById(`bpr-${uid2}`)?.classList.add('matched');
+    } catch(e) {
+      // ALREADY_MATCHED 등 무시하고 다음 쌍 계속
+    }
+  }
+
+  toast(t('batch_done',{n:savedPairs.length}),'success');
+  btn.disabled=false; btn.innerHTML=`🎲 <span>${t('batch_start')}</span>`;
+  batchRunning=false;
+
+  // 데이터 갱신
+  const mSnap=await db.collection(COL_MATCHES).orderBy('createdAt','desc').get();
+  allMatches=mSnap.docs.map(d=>({id:d.id,...d.data()}));
+  updateBatchStats();
+  renderBatchPeople();
+  renderBatchResults();
+}
+
+/**
+ * 슬롯머신 애니메이션
+ * names 배열을 빠르게 순환하다 점점 느려지며 finalName에 정착
+ */
+function animateReel(el, names, finalName) {
+  if(!el) return Promise.resolve();
+  return new Promise(resolve=>{
+    let frame=0;
+    const total=30;
+    function tick(){
+      frame++;
+      const progress=frame/total;
+      // ease-out: 처음엔 빠르게, 마지막엔 천천히
+      const ms=25+Math.pow(progress,2.8)*500;
+      if(frame<total){
+        el.textContent=names[Math.floor(Math.random()*names.length)];
+        setTimeout(tick,ms);
+      } else {
+        el.textContent=finalName;
+        el.className='batch-reel locked';
+        resolve();
+      }
+    }
+    tick();
+  });
+}
+
+function makePairKey(a,b){ const s=[a,b].sort(); return s[0]+'_'+s[1]; }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// ============================================================
+// [15] 삭제 기능
 // ============================================================
 
 const DELETE_PASSWORD = '1234';
