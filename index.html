@@ -1047,7 +1047,7 @@ function setMatchTarget(uid) {
 }
 
 // ============================================================
-// [10] 매칭 추천 알고리즘 (핵심)
+// [10] 매칭 추천 알고리즘 (핵심) — ★ 한국 국적끼리 매칭 방지
 // ============================================================
 async function loadMatchCandidate() {
   const targetUid=document.getElementById('match-target').value;
@@ -1070,7 +1070,21 @@ async function loadMatchCandidate() {
     q1.docs.forEach(d=>matchedUids.add(d.data().uid2));
     q2.docs.forEach(d=>matchedUids.add(d.data().uid1));
 
-    const candidates=allProfiles.filter(p=>p.uid!==targetUid&&!matchedUids.has(p.uid));
+    // ★ 수정: 한국 국적끼리 매칭 방지
+    const targetProfile = getProfile(targetUid);
+    const targetIsKorean = isKorean(targetProfile);
+    
+    const candidates=allProfiles.filter(p => {
+      // 기본 필터: 자기 자신 제외, 이미 매칭된 사람 제외
+      if (p.uid === targetUid || matchedUids.has(p.uid)) return false;
+      
+      // ★ 한국 국적끼리 매칭 방지
+      const candidateIsKorean = isKorean(p);
+      if (targetIsKorean && candidateIsKorean) return false;
+      
+      return true;
+    });
+
     if (!candidates.length) {
       const name=esc(getProfile(targetUid)?.name||'');
       arenaWrap.innerHTML=`<div class="empty-state"><div class="emoji">🎉</div>
@@ -1215,7 +1229,7 @@ function renderMatchHistory() {
 }
 
 // ============================================================
-// [14] 전체 일괄 매칭 — BATCH MATCH VIEW
+// [14] 전체 일괄 매칭 — BATCH MATCH VIEW — ★ 한국 국적끼리 매칭 방지
 // ============================================================
 
 let batchRunning = false;
@@ -1316,12 +1330,12 @@ function buildCountMap() {
 }
 
 /**
- * 이번 라운드 일괄 매칭 실행
+ * 이번 라운드 일괄 매칭 실행 — ★ 한국 국적끼리 매칭 방지
  *
  * 알고리즘:
  * 1. 기존 pairKey Set 구성
  * 2. 매칭 횟수 적은 사람 우선 정렬
- * 3. 탐욕적 그리디 매칭 (아직 이번 라운드 미배정 & 기존 미매칭 조건)
+ * 3. 탐욕적 그리디 매칭 (아직 이번 라운드 미배정 & 기존 미매칭 & 한국 국적끼리 제외 조건)
  * 4. 각 쌍에 슬롯 애니메이션 → Firestore 저장
  */
 async function runBatchMatch() {
@@ -1340,14 +1354,27 @@ async function runBatchMatch() {
   const countMap = buildCountMap();
   const sorted   = [...allProfiles].sort((a,b)=>(countMap[a.uid]||0)-(countMap[b.uid]||0));
 
-  // 그리디 쌍 생성
+  // 그리디 쌍 생성 — ★ 한국 국적끼리 제외
   const thisRound = [];
   const used      = new Set();
   for (const person of sorted) {
     if (used.has(person.uid)) continue;
-    const candidates = sorted.filter(p=>
-      p.uid!==person.uid && !used.has(p.uid) && !existingPairs.has(makePairKey(person.uid,p.uid))
-    );
+    
+    // ★ 현재 사람이 한국 국적인지 확인
+    const personIsKorean = isKorean(person);
+    
+    const candidates = sorted.filter(p => {
+      // 기본 필터
+      if (p.uid === person.uid || used.has(p.uid)) return false;
+      if (existingPairs.has(makePairKey(person.uid, p.uid))) return false;
+      
+      // ★ 한국 국적끼리 매칭 방지
+      const candidateIsKorean = isKorean(p);
+      if (personIsKorean && candidateIsKorean) return false;
+      
+      return true;
+    });
+    
     if (!candidates.length) continue;
     const partner = candidates[0]; // 매칭 횟수 가장 적은 후보
     thisRound.push({uid1:person.uid, uid2:partner.uid});
@@ -1583,6 +1610,14 @@ function esc(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ★ 한국 국적 판별 함수
+function isKorean(profile) {
+  if (!profile || !profile.country) return false;
+  const country = profile.country.toLowerCase().trim();
+  return country.includes('korea') || country.includes('한국') || country.includes('대한민국') || country.includes('south korea');
+}
+
 let toastTimer=null;
 function toast(msg,type='info') {
   const el=document.getElementById('toast');
