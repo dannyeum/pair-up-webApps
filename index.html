@@ -208,6 +208,7 @@
        ════════════════════════════════════════ */
     .batch-header { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:20px; }
     .batch-header-left .section-title { margin-bottom:4px; }
+    .batch-header-right { display: flex; gap: 10px; flex-wrap: wrap; }
     .batch-stats-bar { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:24px; }
     .batch-stat { font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:5px; }
     .batch-stat strong { color:var(--accent2); font-family:var(--font-disp); font-size:18px; line-height:1; }
@@ -227,6 +228,10 @@
     .batch-person-row.matched {
       border-color:var(--success);
       box-shadow:0 0 12px rgba(92,222,168,0.18);
+    }
+    .batch-person-row.temp-matched {
+      border-color:var(--accent3);
+      box-shadow:0 0 12px rgba(224,168,92,0.18);
     }
     .batch-person-row.waiting { border-color:var(--accent3); }
     .batch-person-avatar { font-size:20px; line-height:1; flex-shrink:0; }
@@ -252,10 +257,39 @@
       background:rgba(92,222,168,0.1);
       animation:matchReveal 0.42s cubic-bezier(0.34,1.56,0.64,1);
     }
+    .batch-reel.temp {
+      color:var(--accent3); border-color:var(--accent3);
+      background:rgba(224,168,92,0.12);
+    }
     .batch-reel.bye { font-size:10px; font-style:italic; opacity:0.5; }
 
     /* Right — results list */
     .batch-results-list { display:flex; flex-direction:column; gap:8px; max-height:70vh; overflow-y:auto; padding-right:4px; }
+    
+    /* ★ Temp pair (임시 매칭) */
+    .batch-temp-pair {
+      background:var(--surface); border:2px solid var(--accent3);
+      border-radius:12px; padding:14px 16px;
+      display:grid; grid-template-columns:1fr auto 1fr auto;
+      align-items:center; gap:10px;
+      animation:pairSlideIn 0.38s ease both;
+      position: relative;
+    }
+    .batch-temp-pair .pr-name-a { font-weight:600; font-size:14px; }
+    .batch-temp-pair .pr-name-b { font-weight:600; font-size:14px; text-align:right; }
+    .batch-temp-pair .pr-vs { font-family:var(--font-disp); font-size:20px; color:var(--accent3); font-weight:700; text-align:center; padding:0 2px; }
+    .batch-temp-pair .pr-retry {
+      padding: 4px 10px; font-size: 11px; border-radius: 8px;
+      background: var(--surface2); color: var(--text-muted);
+      border: 1px solid var(--border); cursor: pointer;
+      transition: var(--transition); white-space: nowrap;
+    }
+    .batch-temp-pair .pr-retry:hover {
+      background: var(--surface3); color: var(--accent3);
+      border-color: var(--accent3);
+    }
+
+    /* Saved pair (확정된 매칭) */
     .batch-result-pair {
       background:var(--surface2); border:1px solid var(--border);
       border-radius:12px; padding:12px 16px;
@@ -316,6 +350,7 @@
     .badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
     .badge-auto   { background: rgba(92,200,224,0.15); color: var(--accent2); }
     .badge-manual { background: rgba(224,168,92,0.15); color: var(--accent3); }
+    .badge-temp   { background: rgba(224,168,92,0.2); color: var(--accent3); border: 1px solid var(--accent3); }
 
     /* ── Admin ── */
     .admin-select-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -583,9 +618,17 @@
         <h1 class="section-title" data-i18n="batch_title">전체 매칭</h1>
         <p class="section-sub" style="margin-bottom:0" data-i18n="batch_sub">모든 참가자를 한 번에 1:1 매칭합니다. 슬롯 애니메이션으로 매칭 과정을 확인하세요.</p>
       </div>
-      <button class="btn btn-primary" id="batch-start-btn" onclick="runBatchMatch()">
-        🎲 <span data-i18n="batch_start">이번 라운드 매칭 시작</span>
-      </button>
+      <div class="batch-header-right">
+        <button class="btn btn-primary" id="batch-start-btn" onclick="runBatchMatch()">
+          🎲 <span data-i18n="batch_start">매칭 생성</span>
+        </button>
+        <button class="btn btn-outline" id="batch-retry-btn" style="display:none" onclick="retryAllBatchPairs()">
+          🔄 <span data-i18n="batch_retry_all">전체 재생성</span>
+        </button>
+        <button class="btn btn-primary" id="batch-confirm-btn" style="display:none" onclick="confirmAllBatchPairs()">
+          ✓ <span data-i18n="batch_confirm">최종 확정</span>
+        </button>
+      </div>
     </div>
 
     <!-- Stats bar -->
@@ -617,7 +660,7 @@
 
       <!-- Right: Match history / results -->
       <div>
-        <div class="batch-panel-label" data-i18n="batch_results_label">전체 매칭 기록</div>
+        <div class="batch-panel-label" data-i18n="batch_results_label">매칭 결과</div>
         <div class="batch-results-list" id="batch-results-list">
           <div class="empty-state" style="padding:24px 0">
             <div class="spinner"></div>
@@ -677,9 +720,12 @@ let selectedProfileLangs = [], foodTags = [], hobbyTags = [];
 let currentTargetUid = null, currentCandidateUid = null;
 let adminPickA = null, adminPickB = null;
 
+// ★ 전체 일괄 매칭 임시 데이터
+let tempBatchPairs = []; // {id, uid1, uid2}
+let batchRunning = false;
+
 // ============================================================
 // [2] 번역 테이블 (TRANSLATIONS)
-// 새 문자열 추가 시 ko/en 두 곳에 모두 추가하세요.
 // ============================================================
 const TRANSLATIONS = {
   ko: {
@@ -735,17 +781,23 @@ const TRANSLATIONS = {
     nav_batch:'전체매칭',
     batch_title:'전체 매칭',
     batch_sub:'모든 참가자를 한 번에 1:1 매칭합니다. 슬롯 애니메이션으로 매칭 과정을 확인하세요.',
-    batch_start:'이번 라운드 매칭 시작',
-    batch_running:'⏳ 매칭 진행 중...',
-    batch_done:'🎉 {n}쌍 새로 매칭 완료!',
+    batch_start:'매칭 생성',
+    batch_retry_all:'전체 재생성',
+    batch_confirm:'최종 확정',
+    batch_running:'⏳ 매칭 생성 중...',
+    batch_done:'🎉 {n}쌍 임시 매칭 생성 완료!',
+    batch_confirmed:'✓ {n}쌍 확정 저장 완료!',
     batch_no_more:'모든 가능한 조합이 이미 매칭되었습니다.',
     batch_need_two:'매칭을 위해 최소 2명이 필요합니다.',
     batch_people:'참가자 & 매칭 이력',
-    batch_results_label:'전체 매칭 기록',
+    batch_results_label:'매칭 결과',
     batch_results_empty:'아직 매칭 기록이 없습니다.',
     batch_no_history:'아직 매칭 없음',
     batch_past_matches:'이전:',
     batch_bye:'이번 대기',
+    batch_retry:'재매칭',
+    batch_temp_label:'💡 임시 매칭',
+    batch_saved_label:'✓ 확정된 매칭',
   },
   en: {
     nav_home:'Home', nav_register:'Register', nav_match:'Match', nav_admin:'Admin',
@@ -799,28 +851,32 @@ const TRANSLATIONS = {
     modal_delete_confirm:'🗑 Delete',
     nav_batch:'Batch',
     batch_title:'Batch Match',
-    batch_sub:'Match all participants at once. Watch the slot animation reveal each pair.',
-    batch_start:'Start This Round',
-    batch_running:'⏳ Matching...',
-    batch_done:'🎉 {n} new pairs matched!',
-    batch_no_more:'All possible combinations have been matched.',
+    batch_sub:'Match all participants at once. Review and confirm before saving.',
+    batch_start:'Generate Matches',
+    batch_retry_all:'Regenerate All',
+    batch_confirm:'Confirm All',
+    batch_running:'⏳ Generating...',
+    batch_done:'🎉 {n} temp pairs generated!',
+    batch_confirmed:'✓ {n} pairs confirmed!',
+    batch_no_more:'All possible combinations matched.',
     batch_need_two:'At least 2 participants required.',
     batch_people:'Participants & Match History',
-    batch_results_label:'Full Match History',
+    batch_results_label:'Match Results',
     batch_results_empty:'No matches yet.',
     batch_no_history:'No matches yet',
     batch_past_matches:'Past:',
     batch_bye:'Sitting out',
+    batch_retry:'Retry',
+    batch_temp_label:'💡 Temp Matches',
+    batch_saved_label:'✓ Confirmed Matches',
   }
 };
 
 // ============================================================
 // [3] i18n 엔진
 // ============================================================
-// 현재 UI 언어 — localStorage에 영속 저장
 let uiLang = localStorage.getItem('pairup_ui_lang') || 'ko';
 
-/** t(key, vars) : 현재 언어의 번역 문자열 반환, {placeholder} 치환 지원 */
 function t(key, vars = {}) {
   let str = (TRANSLATIONS[uiLang] || TRANSLATIONS.ko)[key] || key;
   Object.entries(vars).forEach(([k, v]) => {
@@ -829,41 +885,35 @@ function t(key, vars = {}) {
   return str;
 }
 
-/** applyI18n() : data-i18n 속성 DOM 요소에 번역 텍스트 적용 */
 function applyI18n() {
-  // 일반 텍스트 노드
   document.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
-  // input/textarea placeholder
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
     el.placeholder = t(el.dataset.i18nPh);
   });
-  // select option
   document.querySelectorAll('option[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
   document.documentElement.lang = uiLang === 'ko' ? 'ko' : 'en';
 }
 
-/** setUILang(lang) : UI 언어 전환 → 정적 텍스트 재렌더 → 현재 뷰 동적 콘텐츠 재렌더 */
 function setUILang(lang) {
   if (uiLang === lang) return;
   uiLang = lang;
   localStorage.setItem('pairup_ui_lang', lang);
   applyI18n();
   syncLangToggleUI();
-  // 동적으로 렌더된 콘텐츠 재렌더
   const activeView = document.querySelector('.view.active');
   if (activeView) {
     const name = activeView.id.replace('view-', '');
     if (name === 'home')  loadHome();
     if (name === 'match') loadMatchView();
     if (name === 'admin') loadAdminView();
+    if (name === 'batch') loadBatchView();
   }
 }
 
-/** syncLangToggleUI() : nav pill + home banner 버튼 활성 상태 동기화 */
 function syncLangToggleUI() {
   document.getElementById('nav-lang-ko').classList.toggle('active', uiLang === 'ko');
   document.getElementById('nav-lang-en').classList.toggle('active', uiLang === 'en');
@@ -918,7 +968,6 @@ async function loadHome() {
       </div>`;
       return;
     }
-    // 각 참가자의 과거 매칭 파트너 uid → name 맵 구성
     const matchedMap = {};
     allProfiles.forEach(p => { matchedMap[p.uid] = []; });
     allMatches.forEach(mx => {
@@ -929,7 +978,6 @@ async function loadHome() {
     grid.innerHTML = allProfiles.map(p => {
       const langChips = (p.languages||[]).map(l=>`<span class="chip lang">${l==='ko'?'🇰🇷 KO':'🇺🇸 EN'}</span>`).join('');
       const tagChips  = [...(p.foods||[]).slice(0,2), ...(p.hobbies||[]).slice(0,2)].map(tag=>`<span class="chip">${esc(tag)}</span>`).join('');
-      // 과거 매칭 파트너 이름 목록
       const pastNames = (matchedMap[p.uid] || [])
         .map(uid => allProfiles.find(x=>x.uid===uid)?.name).filter(Boolean);
       const pastHtml = pastNames.length
@@ -950,7 +998,7 @@ async function loadHome() {
 }
 
 // ============================================================
-// [6] 등록 폼 — 프로필 언어 버튼 (앱 UI 언어와 별개)
+// [6] 등록 폼
 // ============================================================
 function toggleProfileLang(lang) {
   const btn = document.getElementById(`plang-${lang}`);
@@ -1013,7 +1061,6 @@ async function submitProfile() {
     });
     toast(t('reg_ok',{name}),'success');
     resetRegisterForm();
-    // 등록 완료 후 홈으로 자동 이동
     setTimeout(() => showView('home'), 600);
   } catch(e) { toast(t('reg_fail')+e.message,'error'); }
 }
@@ -1047,7 +1094,7 @@ function setMatchTarget(uid) {
 }
 
 // ============================================================
-// [10] 매칭 추천 알고리즘 (핵심) — ★ 한국 국적끼리 매칭 방지
+// [10] 매칭 추천 알고리즘 — ★ 한국↔외국만
 // ============================================================
 async function loadMatchCandidate() {
   const targetUid=document.getElementById('match-target').value;
@@ -1061,7 +1108,6 @@ async function loadMatchCandidate() {
   }
   arenaWrap.innerHTML=`<div class="empty-state"><div class="spinner"></div><p style="margin-top:12px">${t('match_loading')}</p></div>`;
   try {
-    // Firestore OR 쿼리 미지원 → 두 번 조회 합산
     const [q1,q2] = await Promise.all([
       db.collection(COL_MATCHES).where('uid1','==',targetUid).get(),
       db.collection(COL_MATCHES).where('uid2','==',targetUid).get()
@@ -1070,18 +1116,14 @@ async function loadMatchCandidate() {
     q1.docs.forEach(d=>matchedUids.add(d.data().uid2));
     q2.docs.forEach(d=>matchedUids.add(d.data().uid1));
 
-    // ★ 수정: 한국 국적끼리 매칭 방지
     const targetProfile = getProfile(targetUid);
     const targetIsKorean = isKorean(targetProfile);
     
     const candidates=allProfiles.filter(p => {
-      // 기본 필터: 자기 자신 제외, 이미 매칭된 사람 제외
       if (p.uid === targetUid || matchedUids.has(p.uid)) return false;
-      
-      // ★ 한국 국적끼리 매칭 방지
       const candidateIsKorean = isKorean(p);
-      if (targetIsKorean && candidateIsKorean) return false;
-      
+      // ★ 한국↔외국만 매칭
+      if (targetIsKorean === candidateIsKorean) return false;
       return true;
     });
 
@@ -1092,7 +1134,6 @@ async function loadMatchCandidate() {
         <span class="text-muted text-sm">${t('match_done_hint')}</span></p></div>`;
       return;
     }
-    // 랜덤 후보 선정 (향후: 공통 취미·언어 우선으로 개선 가능)
     const candidate=candidates[Math.floor(Math.random()*candidates.length)];
     currentCandidateUid=candidate.uid;
     arenaWrap.innerHTML=renderArena(getProfile(targetUid), candidate, matchedUids.size, candidates.length);
@@ -1124,7 +1165,7 @@ function renderMatchCard(p) {
 }
 
 // ============================================================
-// [11] 매칭 확정 (Transaction 원자적 처리)
+// [11] 매칭 확정
 // ============================================================
 async function confirmMatch() {
   if (!currentTargetUid||!currentCandidateUid) { toast(t('match_no_target'),'error'); return; }
@@ -1141,8 +1182,7 @@ async function confirmMatch() {
 }
 
 // ============================================================
-// [12] 매칭 저장 — pairKey 기반 Firestore Transaction
-// pairKey = sorted([uid1,uid2]).join('_')  →  A↔B = B↔A 보장
+// [12] 매칭 저장
 // ============================================================
 async function saveMatch(uid1, uid2, type='auto') {
   const sorted=[uid1,uid2].sort();
@@ -1229,12 +1269,9 @@ function renderMatchHistory() {
 }
 
 // ============================================================
-// [14] 전체 일괄 매칭 — BATCH MATCH VIEW — ★ 한국 국적끼리 매칭 방지
+// [14] 전체 일괄 매칭 — ★ 임시 생성 → 개별/전체 RETRY → 최종 확정
 // ============================================================
 
-let batchRunning = false;
-
-/** 배치 뷰 진입 시 데이터 로드 */
 async function loadBatchView() {
   try {
     const [pSnap, mSnap] = await Promise.all([
@@ -1257,7 +1294,6 @@ function updateBatchStats() {
   document.getElementById('b-stat-left').textContent   = Math.max(0, possible-m);
 }
 
-/** 참가자 목록 + 매칭 이력 + reel 렌더링 */
 function renderBatchPeople() {
   const matchedMap = buildMatchedMap();
   const grid = document.getElementById('batch-people-grid');
@@ -1265,12 +1301,25 @@ function renderBatchPeople() {
     grid.innerHTML = `<div class="empty-state"><div class="emoji">👥</div><p>${t('home_empty')}</p></div>`;
     return;
   }
+  
+  // 현재 tempBatchPairs에서 매칭된 사람 확인
+  const tempUsed = new Set(tempBatchPairs.flatMap(p=>[p.uid1,p.uid2]));
+  
   grid.innerHTML = allProfiles.map(p => {
     const history = (matchedMap[p.uid]||[]).map(uid=>getProfile(uid)?.name).filter(Boolean);
     const histHtml = history.length
       ? `<span class="hist-names">${history.map(n=>esc(n)).join(' · ')}</span>`
       : `<span style="font-style:italic">${t('batch_no_history')}</span>`;
-    return `<div class="batch-person-row" id="bpr-${p.uid}">
+    
+    // 임시 매칭된 파트너 찾기
+    const tempPair = tempBatchPairs.find(pair => pair.uid1===p.uid || pair.uid2===p.uid);
+    const tempPartner = tempPair ? (tempPair.uid1===p.uid ? getProfile(tempPair.uid2) : getProfile(tempPair.uid1)) : null;
+    
+    const rowClass = tempUsed.has(p.uid) ? 'batch-person-row temp-matched' : 'batch-person-row';
+    const reelClass = tempPartner ? 'batch-reel temp' : 'batch-reel';
+    const reelText = tempPartner ? esc(tempPartner.name) : '—';
+    
+    return `<div class="${rowClass}" id="bpr-${p.uid}">
       <div class="batch-person-avatar">${genderEmoji(p.gender)}</div>
       <div class="batch-person-info">
         <div class="batch-person-name">${esc(p.name)}</div>
@@ -1279,36 +1328,65 @@ function renderBatchPeople() {
         </div>
       </div>
       <div class="batch-person-reel-wrap">
-        <div class="batch-reel" id="reel-${p.uid}">—</div>
+        <div class="${reelClass}" id="reel-${p.uid}">${reelText}</div>
       </div>
     </div>`;
   }).join('');
 }
 
-/** 최근 매칭 기록 렌더링 (최신순) */
 function renderBatchResults() {
   const list = document.getElementById('batch-results-list');
-  if (!allMatches.length) {
+  
+  // 임시 매칭 표시
+  const tempHtml = tempBatchPairs.length ? `
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent3);letter-spacing:1px;margin-bottom:10px">
+        ${t('batch_temp_label')}
+      </div>
+      ${tempBatchPairs.map((pair,i) => {
+        const p1=getProfile(pair.uid1), p2=getProfile(pair.uid2);
+        return `<div class="batch-temp-pair" style="animation-delay:${i*0.03}s">
+          <div class="pr-name-a">${p1?esc(p1.name):'?'}</div>
+          <div class="pr-vs">↔</div>
+          <div class="pr-name-b">${p2?esc(p2.name):'?'}</div>
+          <button class="pr-retry" onclick="retryOneBatchPair('${pair.id}')">
+            🔄 ${t('batch_retry')}
+          </button>
+        </div>`;
+      }).join('')}
+    </div>
+  ` : '';
+  
+  // 확정된 매칭 표시
+  const savedHtml = allMatches.length ? `
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--success);letter-spacing:1px;margin-bottom:10px">
+        ${t('batch_saved_label')}
+      </div>
+      ${allMatches.slice(0,20).map((m,i) => {
+        const p1=getProfile(m.uid1), p2=getProfile(m.uid2);
+        const locale = uiLang==='ko'?'ko-KR':'en-US';
+        const date=m.createdAt?.toDate?m.createdAt.toDate().toLocaleDateString(locale):'';
+        const badge=m.type==='manual'
+          ?`<span class="badge badge-manual">${t('badge_manual')}</span>`
+          :`<span class="badge badge-auto">${t('badge_auto')}</span>`;
+        return `<div class="batch-result-pair" style="animation-delay:${i*0.02}s">
+          <div class="pr-name-a">${p1?esc(p1.name):'?'}</div>
+          <div class="pr-vs">↔</div>
+          <div class="pr-name-b">${p2?esc(p2.name):'?'}</div>
+          <div class="pr-date">${badge} ${date}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  ` : '';
+  
+  if (!tempHtml && !savedHtml) {
     list.innerHTML = `<div class="empty-state" style="padding:24px 0"><p style="font-size:13px">${t('batch_results_empty')}</p></div>`;
-    return;
+  } else {
+    list.innerHTML = tempHtml + savedHtml;
   }
-  const locale = uiLang==='ko'?'ko-KR':'en-US';
-  list.innerHTML = allMatches.slice(0,50).map((m,i) => {
-    const p1=getProfile(m.uid1), p2=getProfile(m.uid2);
-    const date=m.createdAt?.toDate?m.createdAt.toDate().toLocaleDateString(locale):'';
-    const badge=m.type==='manual'
-      ?`<span class="badge badge-manual">${t('badge_manual')}</span>`
-      :`<span class="badge badge-auto">${t('badge_auto')}</span>`;
-    return `<div class="batch-result-pair" style="animation-delay:${Math.min(i,20)*0.03}s">
-      <div class="pr-name-a">${p1?esc(p1.name):'?'}</div>
-      <div class="pr-vs">↔</div>
-      <div class="pr-name-b">${p2?esc(p2.name):'?'}</div>
-      <div class="pr-date">${badge} ${date}</div>
-    </div>`;
-  }).join('');
 }
 
-/** uid → [매칭된 상대 uid 배열] 맵 */
 function buildMatchedMap() {
   const map = {};
   allProfiles.forEach(p=>{ map[p.uid]=[]; });
@@ -1330,13 +1408,7 @@ function buildCountMap() {
 }
 
 /**
- * 이번 라운드 일괄 매칭 실행 — ★ 한국 국적끼리 매칭 방지
- *
- * 알고리즘:
- * 1. 기존 pairKey Set 구성
- * 2. 매칭 횟수 적은 사람 우선 정렬
- * 3. 탐욕적 그리디 매칭 (아직 이번 라운드 미배정 & 기존 미매칭 & 한국 국적끼리 제외 조건)
- * 4. 각 쌍에 슬롯 애니메이션 → Firestore 저장
+ * 전체 일괄 매칭 생성 (임시) — ★ 한국↔외국만
  */
 async function runBatchMatch() {
   if (batchRunning) return;
@@ -1347,56 +1419,183 @@ async function runBatchMatch() {
   btn.disabled = true;
   btn.textContent = t('batch_running');
 
-  // 기존 pairKey Set
+  // 기존 저장된 매칭 제외
   const existingPairs = new Set(allMatches.map(m=> m.pairKey || makePairKey(m.uid1,m.uid2)));
 
   // 매칭 횟수 적은 순 정렬
   const countMap = buildCountMap();
   const sorted   = [...allProfiles].sort((a,b)=>(countMap[a.uid]||0)-(countMap[b.uid]||0));
 
-  // 그리디 쌍 생성 — ★ 한국 국적끼리 제외
-  const thisRound = [];
-  const used      = new Set();
+  // 그리디 쌍 생성 — ★ 한국↔외국만
+  const newPairs = [];
+  const used = new Set();
   for (const person of sorted) {
     if (used.has(person.uid)) continue;
     
-    // ★ 현재 사람이 한국 국적인지 확인
     const personIsKorean = isKorean(person);
     
     const candidates = sorted.filter(p => {
-      // 기본 필터
       if (p.uid === person.uid || used.has(p.uid)) return false;
       if (existingPairs.has(makePairKey(person.uid, p.uid))) return false;
       
-      // ★ 한국 국적끼리 매칭 방지
+      // ★ 한국↔외국만
       const candidateIsKorean = isKorean(p);
-      if (personIsKorean && candidateIsKorean) return false;
+      if (personIsKorean === candidateIsKorean) return false;
       
       return true;
     });
     
     if (!candidates.length) continue;
-    const partner = candidates[0]; // 매칭 횟수 가장 적은 후보
-    thisRound.push({uid1:person.uid, uid2:partner.uid});
+    const partner = candidates[0];
+    newPairs.push({id:generateId(), uid1:person.uid, uid2:partner.uid});
     used.add(person.uid); used.add(partner.uid);
   }
 
-  if (!thisRound.length) {
+  if (!newPairs.length) {
     toast(t('batch_no_more'),'info');
-    btn.disabled=false; btn.innerHTML=`🎲 <span>${t('batch_start')}</span>`;
+    btn.disabled=false; btn.textContent=t('batch_start');
     batchRunning=false; return;
   }
 
+  // 임시 저장
+  tempBatchPairs = newPairs;
+
+  // 애니메이션
+  await animateBatchPairs(newPairs);
+
+  toast(t('batch_done',{n:newPairs.length}),'success');
+  btn.disabled=false; btn.textContent=t('batch_start');
+  
+  // 버튼 표시
+  document.getElementById('batch-retry-btn').style.display = 'inline-flex';
+  document.getElementById('batch-confirm-btn').style.display = 'inline-flex';
+  
+  batchRunning=false;
+  renderBatchPeople();
+  renderBatchResults();
+}
+
+/**
+ * 개별 쌍 재매칭 — ★ 한국↔외국만
+ */
+async function retryOneBatchPair(pairId) {
+  const pairIdx = tempBatchPairs.findIndex(p=>p.id===pairId);
+  if (pairIdx === -1) return;
+  
+  const oldPair = tempBatchPairs[pairIdx];
+  const person = getProfile(oldPair.uid1);
+  
+  // 현재 사용 중인 사람들 (자기 자신 제외)
+  const usedUids = new Set(
+    tempBatchPairs
+      .filter(p=>p.id!==pairId)
+      .flatMap(p=>[p.uid1,p.uid2])
+  );
+  
+  // 기존 매칭 제외
+  const existingPairs = new Set(allMatches.map(m=> m.pairKey || makePairKey(m.uid1,m.uid2)));
+  
+  const personIsKorean = isKorean(person);
+  
+  // 새 후보 찾기 — ★ 한국↔외국만
+  const candidates = allProfiles.filter(p => {
+    if (p.uid === person.uid || usedUids.has(p.uid)) return false;
+    if (existingPairs.has(makePairKey(person.uid, p.uid))) return false;
+    
+    const candidateIsKorean = isKorean(p);
+    if (personIsKorean === candidateIsKorean) return false;
+    
+    return true;
+  });
+  
+  if (!candidates.length) {
+    toast('⚠️ 더 이상 가능한 매칭이 없습니다.','info');
+    return;
+  }
+  
+  const newPartner = candidates[Math.floor(Math.random()*candidates.length)];
+  tempBatchPairs[pairIdx] = {id:pairId, uid1:person.uid, uid2:newPartner.uid};
+  
+  // 애니메이션
+  const namePool = allProfiles.map(p=>p.name);
+  const name1 = person.name;
+  const name2 = newPartner.name;
+  
+  await Promise.all([
+    animateReel(document.getElementById(`reel-${person.uid}`), namePool, name2),
+    animateReel(document.getElementById(`reel-${newPartner.uid}`), namePool, name1)
+  ]);
+  
+  renderBatchPeople();
+  renderBatchResults();
+}
+
+/**
+ * 전체 재생성
+ */
+async function retryAllBatchPairs() {
+  tempBatchPairs = [];
+  document.getElementById('batch-retry-btn').style.display = 'none';
+  document.getElementById('batch-confirm-btn').style.display = 'none';
+  renderBatchPeople();
+  renderBatchResults();
+  await runBatchMatch();
+}
+
+/**
+ * 최종 확정 → Firestore 저장
+ */
+async function confirmAllBatchPairs() {
+  if (!tempBatchPairs.length) return;
+  
+  const btn = document.getElementById('batch-confirm-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ 저장 중...';
+  
+  try {
+    // 일괄 저장
+    for (const pair of tempBatchPairs) {
+      try {
+        await saveMatch(pair.uid1, pair.uid2, 'auto');
+      } catch(e) {
+        // 이미 저장된 것은 무시
+      }
+    }
+    
+    toast(t('batch_confirmed',{n:tempBatchPairs.length}),'success');
+    
+    // 초기화
+    tempBatchPairs = [];
+    document.getElementById('batch-retry-btn').style.display = 'none';
+    document.getElementById('batch-confirm-btn').style.display = 'none';
+    
+    // 데이터 새로고침
+    const mSnap = await db.collection(COL_MATCHES).orderBy('createdAt','desc').get();
+    allMatches = mSnap.docs.map(d=>({id:d.id,...d.data()}));
+    updateBatchStats();
+    renderBatchPeople();
+    renderBatchResults();
+    
+  } catch(e) {
+    toast(t('match_fail')+e.message,'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('batch_confirm');
+  }
+}
+
+/**
+ * 배치 매칭 애니메이션
+ */
+async function animateBatchPairs(pairs) {
   // 모든 reel 초기화
   allProfiles.forEach(p=>{
     const r=document.getElementById(`reel-${p.uid}`);
     if(r){r.className='batch-reel'; r.textContent='—';}
-    const row=document.getElementById(`bpr-${p.uid}`);
-    if(row) row.className='batch-person-row';
   });
 
-  const involvedUids = new Set(thisRound.flatMap(p=>[p.uid1,p.uid2]));
-  const namePool     = allProfiles.map(p=>p.name);
+  const involvedUids = new Set(pairs.flatMap(p=>[p.uid1,p.uid2]));
+  const namePool = allProfiles.map(p=>p.name);
 
   // 대기자 표시
   allProfiles.forEach(p=>{
@@ -1406,52 +1605,27 @@ async function runBatchMatch() {
     }
   });
 
-  // 참여 쌍 모두 spinning 시작
-  thisRound.forEach(pair=>{
+  // spinning 시작
+  pairs.forEach(pair=>{
     [pair.uid1,pair.uid2].forEach(uid=>{
       const r=document.getElementById(`reel-${uid}`);
       if(r){r.className='batch-reel spinning'; r.textContent='...';}
     });
   });
 
-  // 쌍별 순서대로: 딜레이 → 애니메이션 → 저장
-  const savedPairs = [];
-  for (let i=0; i<thisRound.length; i++) {
-    const {uid1,uid2}=thisRound[i];
+  // 순차 애니메이션
+  for (let i=0; i<pairs.length; i++) {
+    const {uid1,uid2}=pairs[i];
     const name1=getProfile(uid1)?.name||'';
     const name2=getProfile(uid2)?.name||'';
-    await delay(i*220); // 쌍마다 순서감 있게 딜레이
-    // 두 reel 동시에 슬롯 애니메이션
+    await delay(i*220);
     await Promise.all([
       animateReel(document.getElementById(`reel-${uid1}`), namePool, name2),
       animateReel(document.getElementById(`reel-${uid2}`), namePool, name1)
     ]);
-    try {
-      await saveMatch(uid1,uid2,'auto');
-      savedPairs.push({uid1,uid2});
-      document.getElementById(`bpr-${uid1}`)?.classList.add('matched');
-      document.getElementById(`bpr-${uid2}`)?.classList.add('matched');
-    } catch(e) {
-      // ALREADY_MATCHED 등 무시하고 다음 쌍 계속
-    }
   }
-
-  toast(t('batch_done',{n:savedPairs.length}),'success');
-  btn.disabled=false; btn.innerHTML=`🎲 <span>${t('batch_start')}</span>`;
-  batchRunning=false;
-
-  // 데이터 갱신
-  const mSnap=await db.collection(COL_MATCHES).orderBy('createdAt','desc').get();
-  allMatches=mSnap.docs.map(d=>({id:d.id,...d.data()}));
-  updateBatchStats();
-  renderBatchPeople();
-  renderBatchResults();
 }
 
-/**
- * 슬롯머신 애니메이션
- * names 배열을 빠르게 순환하다 점점 느려지며 finalName에 정착
- */
 function animateReel(el, names, finalName) {
   if(!el) return Promise.resolve();
   return new Promise(resolve=>{
@@ -1460,14 +1634,13 @@ function animateReel(el, names, finalName) {
     function tick(){
       frame++;
       const progress=frame/total;
-      // ease-out: 처음엔 빠르게, 마지막엔 천천히
       const ms=25+Math.pow(progress,2.8)*500;
       if(frame<total){
         el.textContent=names[Math.floor(Math.random()*names.length)];
         setTimeout(tick,ms);
       } else {
         el.textContent=finalName;
-        el.className='batch-reel locked';
+        el.className='batch-reel temp';
         resolve();
       }
     }
@@ -1477,6 +1650,7 @@ function animateReel(el, names, finalName) {
 
 function makePairKey(a,b){ const s=[a,b].sort(); return s[0]+'_'+s[1]; }
 function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2); }
 
 // ============================================================
 // [15] 삭제 기능
@@ -1484,12 +1658,10 @@ function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 const DELETE_PASSWORD = '1234';
 
-// 모달 내부 상태
-let modalAction = null;  // 'one' | 'all'
+let modalAction = null;
 let modalTargetUid  = null;
 let modalTargetName = null;
 
-/** 개별 삭제 모달 오픈 */
 function openDeleteOneModal(uid, name) {
   modalAction     = 'one';
   modalTargetUid  = uid;
@@ -1500,7 +1672,6 @@ function openDeleteOneModal(uid, name) {
   openModal();
 }
 
-/** 전체 삭제 모달 오픈 */
 function openDeleteAllModal() {
   modalAction     = 'all';
   modalTargetUid  = null;
@@ -1519,19 +1690,16 @@ function openModal() {
 }
 
 function closeModal(e) {
-  // backdrop 클릭 시 modal-box 내부면 닫지 않음
   if (e && e.target !== document.getElementById('pw-modal')) return;
   document.getElementById('pw-modal').classList.remove('open');
 }
 
-/** 모달 확인 버튼 — 비밀번호 검증 후 삭제 실행 */
 async function confirmModalAction() {
   const pw = document.getElementById('modal-pw-input').value;
   const errEl = document.getElementById('modal-pw-error');
   if (pw !== DELETE_PASSWORD) {
     errEl.textContent = t('del_pw_wrong');
     document.getElementById('modal-pw-input').focus();
-    // 입력창 흔들기 애니메이션
     document.getElementById('modal-pw-input').style.animation = 'shake 0.3s ease';
     setTimeout(() => document.getElementById('modal-pw-input').style.animation = '', 300);
     return;
@@ -1546,20 +1714,13 @@ async function confirmModalAction() {
   }
 }
 
-/**
- * 개별 삭제:
- * 1. profiles/{uid} 문서 삭제
- * 2. 해당 uid가 포함된 모든 matches 문서도 삭제 (관련 매칭 기록 정리)
- */
 async function deleteOneProfile(uid, name) {
   try {
-    // 해당 참가자가 포함된 매칭 조회 (uid1 또는 uid2)
     const [q1, q2] = await Promise.all([
       db.collection(COL_MATCHES).where('uid1','==',uid).get(),
       db.collection(COL_MATCHES).where('uid2','==',uid).get()
     ]);
 
-    // Firestore batch로 원자적 삭제
     const batch = db.batch();
     batch.delete(db.collection(COL_PROFILES).doc(uid));
     q1.docs.forEach(d => batch.delete(d.ref));
@@ -1567,17 +1728,12 @@ async function deleteOneProfile(uid, name) {
     await batch.commit();
 
     toast(t('del_ok', {name}), 'success');
-    loadHome(); // 홈 새로고침
+    loadHome();
   } catch(e) {
     toast(t('del_fail') + e.message, 'error');
   }
 }
 
-/**
- * 전체 삭제:
- * profiles 컬렉션 + matches 컬렉션 모든 문서 삭제
- * Firestore batch는 500개 제한 → 청크로 나눠 처리
- */
 async function deleteAllData() {
   try {
     const [pSnap, mSnap] = await Promise.all([
@@ -1586,7 +1742,6 @@ async function deleteAllData() {
     ]);
 
     const allDocs = [...pSnap.docs, ...mSnap.docs];
-    // 500개씩 청크로 나눠 batch 삭제
     const CHUNK = 400;
     for (let i = 0; i < allDocs.length; i += CHUNK) {
       const batch = db.batch();
@@ -1611,7 +1766,7 @@ function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ★ 한국 국적 판별 함수
+// ★ 한국 국적 판별
 function isKorean(profile) {
   if (!profile || !profile.country) return false;
   const country = profile.country.toLowerCase().trim();
@@ -1632,7 +1787,6 @@ function toast(msg,type='info') {
 document.addEventListener('DOMContentLoaded',()=>{
   initTagInput('food-input','food-wrap',foodTags);
   initTagInput('hobby-input','hobby-wrap',hobbyTags);
-  // 저장된 UI 언어 적용 (localStorage)
   applyI18n();
   syncLangToggleUI();
   loadHome();
