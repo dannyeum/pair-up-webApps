@@ -171,6 +171,18 @@ select.fi option{background:var(--sf2)}textarea.fi{resize:vertical;min-height:80
 .sc-kr{background:rgba(92,200,224,.15);color:var(--ac2)}.sc-int{background:rgba(224,168,92,.15);color:var(--ac3)}.sc-warn{background:rgba(224,92,92,.15);color:var(--ac)}
 
 .blayout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.blayout3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start}
+.rest-panel{background:var(--sf);border:1.5px dashed var(--bd);border-radius:var(--r);padding:16px;margin-top:20px}
+.rest-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.rest-title{font-size:13px;font-weight:700;color:var(--tm)}
+.rest-badge{font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(107,113,143,0.15);color:var(--tm);border:1px solid var(--bd)}
+.rtp{background:var(--sf2);border:1.5px dashed rgba(107,113,143,0.4);border-radius:12px;padding:12px 14px;display:grid;grid-template-columns:1fr auto 1fr auto;align-items:center;gap:8px;animation:psi .3s ease both}
+.rtp .pna{font-weight:600;font-size:13px;color:var(--tm)}.rtp .pnb{font-weight:600;font-size:13px;text-align:right;color:var(--tm)}
+.rtp .pvs{font-family:var(--fd);font-size:18px;color:var(--tm);font-weight:700;text-align:center;opacity:.5}
+.rtp-retry{padding:3px 9px;font-size:11px;border-radius:8px;background:none;color:var(--tm);border:1px solid var(--bd);cursor:pointer;transition:var(--tr)}
+.rtp-retry:hover{color:var(--ac3);border-color:var(--ac3)}
+.rest-rlist{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow-y:auto;padding-right:2px}
+.rest-empty{text-align:center;padding:20px;font-size:12px;color:var(--tm);font-style:italic}
 .bplbl{font-size:10px;font-weight:700;color:var(--tm);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
 .bpgrid{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;padding-right:4px}
 .bpr{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;transition:border-color .35s,box-shadow .35s}
@@ -215,7 +227,8 @@ select.fi option{background:var(--sf2)}textarea.fi{resize:vertical;min-height:80
 @keyframes psi{from{transform:translateX(18px);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}60%{transform:translateX(6px)}}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:var(--sf)}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px}
-@media(max-width:720px){.blayout{grid-template-columns:1fr}}
+@media(max-width:900px){.blayout3{grid-template-columns:1fr 1fr}}
+@media(max-width:720px){.blayout{grid-template-columns:1fr}.blayout3{grid-template-columns:1fr}}
 @media(max-width:600px){.sr{grid-template-columns:1fr 1fr}.marena{grid-template-columns:1fr}.vsbadge{display:none}.apgrid{grid-template-columns:1fr}.nbtn .nl{display:none}}
 </style>
 </head>
@@ -399,9 +412,13 @@ select.fi option{background:var(--sf2)}textarea.fi{resize:vertical;min-height:80
     <div class="bsgrid" id="bsgrid"><div class="spin2" style="margin:10px auto"></div></div>
     <div class="bssum" id="bssum"></div>
   </div>
-  <div class="blayout">
+  <div class="blayout3">
     <div><div class="bplbl" data-i18n="batch_people">참가자 &amp; 매칭 이력</div><div class="bpgrid" id="bpgrid"><div class="empty"><div class="spin2"></div></div></div></div>
     <div><div class="bplbl" data-i18n="batch_res">매칭 결과</div><div class="brlist" id="brlist"><div class="empty" style="padding:24px 0"><div class="spin2"></div></div></div></div>
+    <div id="rest-col" style="display:none">
+      <div class="bplbl" data-i18n="rest_lbl">나머지 인원 자동 매칭 (참고용)</div>
+      <div class="rest-rlist" id="rest-rlist"></div>
+    </div>
   </div>
 </div>
 </div>
@@ -457,6 +474,7 @@ let selA=null,selB=null;        // home select mode
 let selMode=false;
 let batchSel=new Set();
 let tempPairs=[];
+let tempRestPairs=[];  // 나머지 인원 자동 매칭
 let batchRunning=false;
 const DEL_PW='6956';
 let delAction=null,delUid=null,delName=null;
@@ -525,6 +543,9 @@ const TR={
     batch_res:'매칭 결과',batch_res_empty:'아직 매칭 기록이 없습니다.',
     no_hist:'아직 매칭 없음',past:'이전:',bye:'이번 대기',retry:'재매칭',
     temp_lbl:'💡 임시 매칭',saved_lbl:'✓ 확정된 매칭',
+    rest_lbl:'🔄 나머지 인원 자동 매칭 (참고용)',rest_badge:'미선택자 자동 배치',
+    rest_empty:'나머지 인원이 없거나 가능한 조합이 없습니다.',rest_bye:'매칭 상대 없음',
+    batch_confirm_all:'전체 확정 ({s}선택 + {r}나머지)',
   },
   en:{nav_home:'Home',nav_reg:'Register',nav_match:'Match',nav_admin:'Admin',nav_batch:'Batch',
     banner_t:'App Language',banner_s:'Changes all screens instantly',
@@ -585,6 +606,9 @@ const TR={
     batch_res:'Match Results',batch_res_empty:'No matches yet.',
     no_hist:'No matches yet',past:'Past:',bye:'Sitting out',retry:'Retry',
     temp_lbl:'💡 Temp Matches',saved_lbl:'✓ Confirmed Matches',
+    rest_lbl:'🔄 Auto-Match: Remaining (Reference)',rest_badge:'Unselected — Auto',
+    rest_empty:'No remaining participants or no valid pairs.',rest_bye:'No match available',
+    batch_confirm_all:'Confirm All ({s} selected + {r} rest)',
   }
 };
 let lang=localStorage.getItem('pu_lang')||'ko';
@@ -1031,7 +1055,7 @@ function renderBatchResults(){
           <button class="prety" onclick="retryPair('${pair.id}')">🔄 ${t('retry')}</button>
         </div>`;
       }).join('')}
-    </div>`:''  ;
+    </div>`:'';
   const savedHtml=matches.length?`
     <div>
       <div style="font-size:11px;font-weight:700;color:var(--ok);letter-spacing:1px;margin-bottom:10px">${t('saved_lbl')}</div>
@@ -1045,8 +1069,49 @@ function renderBatchResults(){
           <div class="pdate">${badge} ${date}</div>
         </div>`;
       }).join('')}
-    </div>`:''  ;
+    </div>`:'';
   list.innerHTML=tmpHtml||savedHtml?tmpHtml+savedHtml:`<div class="empty" style="padding:24px 0"><p style="font-size:13px">${t('batch_res_empty')}</p></div>`;
+}
+
+// ★ 나머지 인원 자동 매칭 렌더
+function renderRestPanel(){
+  const col=document.getElementById('rest-col');
+  const list=document.getElementById('rest-rlist');
+  if(!tempRestPairs.length){col.style.display='none';return;}
+  col.style.display='block';
+  // 나머지 매칭 생성 날짜 없이 표시
+  const existPairs=new Set(matches.map(m=>m.pairKey||mkKey(m.uid1,m.uid2)));
+  list.innerHTML=`
+    <div style="font-size:11px;font-weight:700;color:var(--tm);letter-spacing:1px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+      <span>${t('rest_lbl').replace('🔄 ','')}</span>
+      <span class="rest-badge">${tempRestPairs.length}쌍</span>
+    </div>
+    ${tempRestPairs.map((pair,i)=>{
+      const p1=getP(pair.uid1),p2=getP(pair.uid2);
+      const alr=existPairs.has(mkKey(pair.uid1,pair.uid2));
+      return `<div class="rtp" style="animation-delay:${i*.03}s;${alr?'opacity:.35':''}">
+        <div class="pna">${p1?esc(p1.name):'?'}</div>
+        <div class="pvs">↔</div>
+        <div class="pnb">${p2?esc(p2.name):'?'}</div>
+        <button class="rtp-retry" onclick="retryRestPair('${pair.id}')">🔄</button>
+      </div>`;
+    }).join('')}
+    ${tempRestPairs.some(p=>getP(p.uid1)===null||getP(p.uid2)===null)?'':
+      `<div style="font-size:10px;color:var(--tm);margin-top:8px;padding-top:8px;border-top:1px solid var(--bd);line-height:1.6">
+        💡 ${lang==='ko'?'나머지 인원 중 매칭되지 않은 사람은 한국↔외국 쌍이 없거나 이미 모두 매칭된 경우입니다.':'Remaining unmatched participants have no valid KR↔International pair or are already fully matched.'}
+      </div>`
+    }
+  `;
+  // 확정 버튼 텍스트 업데이트
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn(){
+  const btn=document.getElementById('bb-confirm');
+  if(!btn||btn.style.display==='none')return;
+  const s=tempPairs.length,r=tempRestPairs.length;
+  if(r>0) btn.querySelector('span').textContent=t('batch_confirm_all',{s,r});
+  else btn.querySelector('span').textContent=t('batch_confirm');
 }
 async function runBatch(){
   if(batchRunning)return;
@@ -1068,12 +1133,30 @@ async function runBatch(){
   }
   if(!newPairs.length){toast(t('batch_no_more'),'inf');btn.disabled=false;btn.textContent=t('batch_start');batchRunning=false;return;}
   tempPairs=newPairs;
+
+  // ★ 나머지 인원(미선택자) 자동 매칭
+  const restProfiles=profiles.filter(p=>!batchSel.has(p.uid));
+  const usedByMain=new Set(newPairs.flatMap(p=>[p.uid1,p.uid2]));
+  const restPairs=[];const restUsed=new Set();
+  const restCntMap=buildCntMap();
+  const restSorted=[...restProfiles].sort((a,b)=>(restCntMap[a.uid]||0)-(restCntMap[b.uid]||0));
+  for(const p of restSorted){
+    if(restUsed.has(p.uid))continue;
+    const pkr=isKR(p);
+    // 나머지 인원 중에서만 매칭 (선택된 인원과 교차 없음)
+    const cands=restSorted.filter(x=>x.uid!==p.uid&&!restUsed.has(x.uid)&&!existPairs.has(mkKey(p.uid,x.uid))&&isKR(x)!==pkr);
+    if(!cands.length)continue;
+    restPairs.push({id:genId(),uid1:p.uid,uid2:cands[0].uid});
+    restUsed.add(p.uid);restUsed.add(cands[0].uid);
+  }
+  tempRestPairs=restPairs;
+
   await animatePairs(newPairs);
   toast(t('batch_done',{n:newPairs.length}),'ok');
   btn.disabled=false;btn.textContent=t('batch_start');
   document.getElementById('bb-retry').style.display='inline-flex';
   document.getElementById('bb-confirm').style.display='inline-flex';
-  batchRunning=false;renderBatchPeople();renderBatchResults();
+  batchRunning=false;renderBatchPeople();renderBatchResults();renderRestPanel();
 }
 async function retryPair(pairId){
   const idx=tempPairs.findIndex(p=>p.id===pairId);if(idx===-1)return;
@@ -1090,20 +1173,39 @@ async function retryPair(pairId){
   renderBatchPeople();renderBatchResults();
 }
 async function retryAllPairs(){
-  tempPairs=[];
+  tempPairs=[];tempRestPairs=[];
   document.getElementById('bb-retry').style.display='none';
   document.getElementById('bb-confirm').style.display='none';
+  document.getElementById('rest-col').style.display='none';
   renderBatchPeople();renderBatchResults();await runBatch();
 }
+
+// ★ 나머지 인원 개별 재매칭
+async function retryRestPair(pairId){
+  const idx=tempRestPairs.findIndex(p=>p.id===pairId);if(idx===-1)return;
+  const old=tempRestPairs[idx],person=getP(old.uid1);
+  const usedU=new Set(tempRestPairs.filter(p=>p.id!==pairId).flatMap(p=>[p.uid1,p.uid2]));
+  const existP=new Set(matches.map(m=>m.pairKey||mkKey(m.uid1,m.uid2)));
+  const pkr=isKR(person);
+  const restProfiles=profiles.filter(p=>!batchSel.has(p.uid));
+  const cands=restProfiles.filter(p=>p.uid!==person.uid&&!usedU.has(p.uid)&&!existP.has(mkKey(person.uid,p.uid))&&isKR(p)!==pkr);
+  if(!cands.length){toast('⚠️ 가능한 매칭이 없습니다.','inf');return;}
+  const partner=cands[Math.floor(Math.random()*cands.length)];
+  tempRestPairs[idx]={id:pairId,uid1:person.uid,uid2:partner.uid};
+  renderRestPanel();
+}
 async function confirmAllPairs(){
-  if(!tempPairs.length)return;
+  if(!tempPairs.length&&!tempRestPairs.length)return;
   const btn=document.getElementById('bb-confirm');btn.disabled=true;btn.textContent='⏳ 저장 중...';
   try{
-    for(const pair of tempPairs){try{await saveMatch(pair.uid1,pair.uid2,'auto');}catch(e){}}
-    toast(t('batch_confirmed',{n:tempPairs.length}),'ok');
-    tempPairs=[];
+    const allToSave=[...tempPairs,...tempRestPairs];
+    let saved=0;
+    for(const pair of allToSave){try{await saveMatch(pair.uid1,pair.uid2,'auto');saved++;}catch(e){}}
+    toast(t('batch_confirmed',{n:saved}),'ok');
+    tempPairs=[];tempRestPairs=[];
     document.getElementById('bb-retry').style.display='none';
     document.getElementById('bb-confirm').style.display='none';
+    document.getElementById('rest-col').style.display='none';
     const ms=await db.collection(CM).orderBy('createdAt','desc').get();
     matches=ms.docs.map(d=>({id:d.id,...d.data()}));
     updateBatchStats();renderBatchPeople();renderBatchResults();
